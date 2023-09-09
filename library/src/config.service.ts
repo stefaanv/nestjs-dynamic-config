@@ -14,22 +14,18 @@ type LocalEventTypes = {
   reloaded: []
 }
 
-interface GetOptions {
-  failOnNotFound?: boolean
-}
 @Injectable()
 export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   private readonly _logger: LoggerService
   private _config: unknown
   private readonly _envConfig: { [key: string]: string }
-  //TODO event sturen
   //TODO proxi functie
 
   constructor(@Inject('DYNAMIC_CONFIG_OPTIONS') private readonly options: DynamicConfigOptions) {
     super()
     this._logger = options.logger ?? new ConsoleLogger()
     this.loadEnvFile(options)
-    if (!this.jsFileType(options.configFile)) {
+    if (!this.checkFileType(options.configFile)) {
       throw new Error(`Configuration file must be .js or .json type`)
     }
 
@@ -53,7 +49,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     }
   }
 
-  jsFileType(fullPath: string) {
+  checkFileType(fullPath: string) {
     return fullPath.endsWith('.js') || fullPath.endsWith('.json')
   }
 
@@ -73,17 +69,23 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     }
   }
 
-  get<T>(keys: string[] | string, options?: GetOptions): T | undefined
-  get<T>(keys: string[] | string, defaultValue: T, options?: GetOptions): T
-  get<T>(keys: string[] | string, defaultValue?: T, options?: GetOptions): T {
+  get<T = string>(keys: string[] | string): T | undefined
+  get<T = string>(keys: string[] | string, defaultValue: T): T
+  get<T = string>(keys: string[] | string, defaultValue?: T): T {
     const key = typeof keys === 'string' ? keys : keys.join('.')
     return this._config[key] ?? defaultValue
   }
 
-  getOrFail<T>(keys: string[] | string): T {
+  getOrFail<T = string>(keys: string[] | string): T {
     const key = typeof keys === 'string' ? keys : keys.join('.')
     if (!this.get(keys)) throw new Error(`key ${key} not found in the configuration`)
     return this.get(keys)
+  }
+
+  createProxy<T = string>(keys: string[] | string): () => T | undefined
+  createProxy<T = string>(keys: string[] | string, defaultValue: T): () => T
+  createProxy<T = string>(keys: string[] | string, defaultValue?: T): () => T {
+    return () => this.get<T>(keys, defaultValue)
   }
 
   private loadEnvFile(options: DynamicConfigOptions) {
