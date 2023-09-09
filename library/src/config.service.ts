@@ -13,8 +13,12 @@ const WAIT_TIME_RELOAD = 100
 type LocalEventTypes = {
   reloaded: []
 }
+
+interface GetOptions {
+  failOnNotFound?: boolean
+}
 @Injectable()
-export class ConfigService<TResultAsTuple = false> extends TypedEventEmitter<LocalEventTypes> {
+export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   private readonly _logger: LoggerService
   private _config: unknown
   private readonly _envConfig: { [key: string]: string }
@@ -69,18 +73,17 @@ export class ConfigService<TResultAsTuple = false> extends TypedEventEmitter<Loc
     }
   }
 
-  get<T>(keys: string[] | string): T | undefined
-  get<T>(keys: string[] | string, defaultValue: T): T
-  get<T>(keys: string[] | string, defaultValue?: T): T {
+  get<T>(keys: string[] | string, options?: GetOptions): T | undefined
+  get<T>(keys: string[] | string, defaultValue: T, options?: GetOptions): T
+  get<T>(keys: string[] | string, defaultValue?: T, options?: GetOptions): T {
     const key = typeof keys === 'string' ? keys : keys.join('.')
     return this._config[key] ?? defaultValue
   }
 
-  getOrFail<T>(keys: string[] | string): TResultAsTuple extends false ? [Error, T] : T {
+  getOrFail<T>(keys: string[] | string): T {
     const key = typeof keys === 'string' ? keys : keys.join('.')
-    const value = this._config[key]
-    if (!value) throw new Error(`key ${key} not found in the configuration`)
-    return value
+    if (!this.get(keys)) throw new Error(`key ${key} not found in the configuration`)
+    return this.get(keys)
   }
 
   private loadEnvFile(options: DynamicConfigOptions) {
