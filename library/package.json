@@ -36,7 +36,8 @@
   },
   "dependencies": {
     "chokidar": "^3.5.3",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "radash": "^11.0.0"
   },
   "devDependencies": {
     "@nestjs/common": "^10.2.4",

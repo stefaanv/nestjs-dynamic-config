@@ -6,25 +6,31 @@ import { existsSync, readFileSync } from 'fs'
 import { resolve } from 'path'
 import { ConsoleLogger, LoggerService } from '@nestjs/common'
 import { TypedEventEmitter } from './TypedEventEmitter.class'
+import { crush } from 'radash'
 
 const NODE_ENV = process.env.NODE_ENV || 'development'
 const ENV_PATHS = [`${NODE_ENV}.env`, '.env', `../${NODE_ENV}.env`, '../.env']
+const PKG_PATHS = ['package.json', '../package.json']
 const WAIT_TIME_RELOAD = 100
 type LocalEventTypes = {
   reloaded: []
 }
 
+//TODO git commit opvragen (productionCommitEnvVareName optie voor productie)
+
 @Injectable()
 export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   private readonly _logger: LoggerService
   private _config: unknown
-  private readonly _envConfig: { [key: string]: string }
-  //TODO proxi functie
+  private _packageInfo: Record<string, any>
+  public appName = '<unknown>'
+  public version = '<unknown>'
 
   constructor(@Inject('DYNAMIC_CONFIG_OPTIONS') private readonly options: DynamicConfigOptions) {
     super()
     this._logger = options.logger ?? new ConsoleLogger()
     this.loadEnvFile(options)
+    this._packageInfo = this.loadPackage(options)
     if (!this.checkFileType(options.configFile)) {
       throw new Error(`Configuration file must be .js or .json type`)
     }
@@ -56,7 +62,16 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   evalConfigFile() {
     try {
       const cfgFile = this.options.configFile
-      const content = readFileSync(cfgFile, { encoding: 'utf-8' })
+      let content = Object.keys(process.env).reduce(
+        (cnt, key) => cnt.replaceAll('{{ENV_' + key + '}}', process.env[key]),
+        readFileSync(cfgFile, { encoding: 'utf-8' }),
+      )
+      if (this._packageInfo) {
+        content = Object.keys(this._packageInfo).reduce(
+          (cnt, key) => cnt.replaceAll('{{pkg.' + key + '}}', this._packageInfo[key]),
+          content,
+        )
+      }
       this._config = cfgFile.endsWith('.js') ? eval(content) : JSON.parse(content)
     } catch (error) {
       const err = error instanceof Error ? new Error(error.message) : error
@@ -101,6 +116,25 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       }
     } else {
       this.logDebug('No "envFolder" provided')
+    }
+  }
+
+  private loadPackage(options: DynamicConfigOptions): Record<string, any> | undefined {
+    try {
+      const folder = options.rootFolder
+      const envFiles = PKG_PATHS.map(f => resolve(folder, f)).filter(fp => existsSync(fp))
+      console.log('envFiles', envFiles)
+      if (envFiles.length > 0) {
+        const pkgContent = readFileSync(envFiles[0], 'utf8')
+        const pkg = JSON.parse(pkgContent)
+        this.appName = pkg['name']
+        this.version = pkg['version']
+        return crush(pkg)
+      }
+      return undefined
+    } catch (error) {
+      console.error(error)
+      return undefined
     }
   }
 
