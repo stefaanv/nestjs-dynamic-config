@@ -1,12 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common'
 import { watch } from 'chokidar'
 import { DynamicConfigOptions } from './config.options.interface'
-import { readFileSync } from 'fs'
 import { TypedEventEmitter } from './TypedEventEmitter.class'
 import { crush } from 'radash'
 import { FileLoadService } from './file-loader.service'
 import { ensureError } from './helpers'
-import { config } from 'dotenv'
 
 export const DYNAMIC_CONFIG_OPTIONS = 'DYNAMIC_CONFIG_OPTIONS'
 
