@@ -1,17 +1,22 @@
-import { Module } from '@nestjs/common'
+import { Module, ConsoleLogger, Global, Scope } from '@nestjs/common'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
-import { ConfigModule, ConfigService } from '@itanium.eu/nestjs-dynamic-config'
-import * as path from 'path'
+import { ConfigModule } from '@itanium.eu/nestjs-dynamic-config'
 
+@Global()
 @Module({
   imports: [
     ConfigModule.register({
       rootFolder: __dirname,
-      configFile: path.resolve(__dirname, '..', 'config.js'),
+      configFile: 'config.js',
     }),
+    LoggerModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: 'LoggerService', useClass: ConsoleLogger, scope: Scope.DEFAULT },
+  ],
+  exports: ['LoggerService'],
 })
 export class AppModule {}

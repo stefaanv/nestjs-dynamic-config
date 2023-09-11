@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common'
+import { ConsoleLogger, Inject, Injectable, Logger, LoggerService } from '@nestjs/common'
 import { watch } from 'chokidar'
 import { DynamicConfigOptions } from './config.options.interface'
 import { TypedEventEmitter } from './TypedEventEmitter.class'
@@ -38,9 +38,10 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   constructor(
     @Inject(DYNAMIC_CONFIG_OPTIONS) private readonly options: DynamicConfigOptions,
     private readonly _fileLoader: FileLoadService,
-    private readonly _log: Logger,
+    @Inject('LoggerService') private readonly _log?: LoggerService,
   ) {
     super()
+    if (!this._log) this._log = new ConsoleLogger()
 
     // load the .env file
     const error1 = this._fileLoader.loadEnvFile(this.options)
