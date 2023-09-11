@@ -1,5 +1,4 @@
 import { Inject, Injectable } from '@nestjs/common'
-import * as dotenv from 'dotenv'
 import { watch } from 'chokidar'
 import { DynamicConfigOptions } from './config.options.interface'
 import { existsSync, readFileSync } from 'fs'
@@ -7,26 +6,41 @@ import { resolve } from 'path'
 import { ConsoleLogger, LoggerService } from '@nestjs/common'
 import { TypedEventEmitter } from './TypedEventEmitter.class'
 import { crush } from 'radash'
+import { FileLoadService } from './file-loader.service'
 
-const NODE_ENV = process.env.NODE_ENV || 'development'
-const ENV_PATHS = [`${NODE_ENV}.env`, '.env', `../${NODE_ENV}.env`, '../.env']
+export const DYNAMIC_CONFIG_OPTIONS = 'DYNAMIC_CONFIG_OPTIONS'
 const PKG_PATHS = ['package.json', '../package.json']
+
 const WAIT_TIME_RELOAD = 100
 type LocalEventTypes = {
   reloaded: []
 }
 
 //TODO git commit opvragen (productionCommitEnvVareName optie voor productie)
-
+//TODO validatie toevoegen
+//TODO rapporteren van wijzigingen in event
 @Injectable()
 export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   private readonly _logger: LoggerService
   private _config: unknown
   private _packageInfo: Record<string, any>
-  public appName = '<unknown>'
-  public version = '<unknown>'
+  private _appName = '<unknown>'
+  private _version = '<unknown>'
 
-  constructor(@Inject('DYNAMIC_CONFIG_OPTIONS') private readonly options: DynamicConfigOptions) {
+  get appName() {
+    return this._appName
+  }
+  get version() {
+    return this._version
+  }
+  get packageInfo() {
+    return this._packageInfo
+  }
+
+  constructor(
+    @Inject(DYNAMIC_CONFIG_OPTIONS) private readonly options: DynamicConfigOptions,
+    fileLoader: FileLoadService,
+  ) {
     super()
     this._logger = options.logger ?? new ConsoleLogger()
     this.loadEnvFile(options)
@@ -127,8 +141,8 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       if (envFiles.length > 0) {
         const pkgContent = readFileSync(envFiles[0], 'utf8')
         const pkg = JSON.parse(pkgContent)
-        this.appName = pkg['name']
-        this.version = pkg['version']
+        this._appName = pkg['name']
+        this._version = pkg['version']
         return crush(pkg)
       }
       return undefined
