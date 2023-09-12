@@ -11,19 +11,18 @@ const NODE_ENV = process.env.NODE_ENV || 'development'
 
 @Injectable()
 export class FileLoadService {
-  loadEnvFile(options: DynamicConfigOptions): Error | undefined {
-    const rootFolder = options.rootFolder
-    if (!rootFolder) return new Error('No "rootFolder" provided')
-    // try to find the .env file
-    const envFile = this.getFirstExisting(options.rootFolder, [
-      `${NODE_ENV}.env`,
-      '.env',
-      `../${NODE_ENV}.env`,
-      '../.env',
-    ])
-    if (!envFile) return new Error(`No valid .env file found in "${rootFolder}"`)
-    dotenv.config({ debug: true, path: envFile })
-    return undefined
+  loadEnvFile(options: DynamicConfigOptions): [Error, undefined] | [undefined, string] {
+    try {
+      const rootFolder = options.rootFolder
+      if (!rootFolder) return [new Error('No "rootFolder" provided'), undefined]
+      // try to find the .env file
+      const paths = [`${NODE_ENV}.env`, '.env', `../${NODE_ENV}.env`, '../.env']
+      const envFile = this.getFirstExisting(options.rootFolder, paths)
+      if (!envFile) return [new Error(`No valid .env file found in "${rootFolder}"`), undefined]
+      return [undefined, envFile]
+    } catch (error) {
+      return [ensureError(error), undefined]
+    }
   }
 
   loadPkgFile(options: DynamicConfigOptions): [Error, undefined] | [undefined, object] {

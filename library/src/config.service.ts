@@ -1,10 +1,11 @@
-import { ConsoleLogger, Inject, Injectable, Logger, LoggerService } from '@nestjs/common'
-import { watch } from 'chokidar'
+import { Inject, Injectable, Logger, LoggerService } from '@nestjs/common'
+import { watch, FSWatcher } from 'chokidar'
 import { DynamicConfigOptions } from './config.options.interface'
 import { TypedEventEmitter } from './TypedEventEmitter.class'
 import { crush } from 'radash'
 import { FileLoadService } from './file-loader.service'
 import { ensureError } from './helpers'
+import * as dotenv from 'dotenv'
 
 export const DYNAMIC_CONFIG_OPTIONS = 'DYNAMIC_CONFIG_OPTIONS'
 
@@ -19,6 +20,7 @@ type LocalEventTypes = {
 @Injectable()
 export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   private readonly _logger: Logger
+  private readonly _watcher: FSWatcher
   private _config: unknown
   private _packageInfo: Record<string, any>
   private _appName = '<unknown>'
@@ -38,18 +40,24 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   constructor(
     @Inject(DYNAMIC_CONFIG_OPTIONS) private readonly options: DynamicConfigOptions,
     private readonly _fileLoader: FileLoadService,
-    @Inject('Logger') private readonly _log: Logger,
+    @Inject('LoggerService') private readonly _log: LoggerService,
   ) {
     super()
 
     // load the .env file
-    const error1 = this._fileLoader.loadEnvFile(this.options)
-    if (error1) this.logError(error1)
+    const [error1, env] = this._fileLoader.loadEnvFile(this.options)
+    if (error1) {
+      this.logError(error1)
+    } else {
+      const parsed = dotenv.parse(env)
+      dotenv.populate(process.env, parsed)
+    }
 
     // load the package.json file
     const [error2, pkg] = this._fileLoader.loadPkgFile(options)
     if (error2) {
       this._log.error(error2.message)
+      this._packageInfo = {}
     } else {
       this._packageInfo = crush(pkg)
       this._appName = pkg['name']
@@ -75,7 +83,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
 
     // Initial load the config file and start the file watcher
     this.loadConfig(configFile, true)
-    watch(options.configFile).on('change', () => {
+    this._watcher = watch(options.configFile).on('change', () => {
       this.loadConfig(configFile)
       this.emit('reloaded')
     })
@@ -124,6 +132,11 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
         process.exit(1)
       }
     }
+  }
+
+  closeFileWatcher() {
+    this._watcher.unwatch('*')
+    this._watcher.close()
   }
 
   get<T = string>(keys: string[] | string): T | undefined
