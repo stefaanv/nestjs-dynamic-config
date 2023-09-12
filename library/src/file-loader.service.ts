@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common'
 import { existsSync, readFileSync } from 'fs'
 import { resolve } from 'path'
 import { DynamicConfigOptions } from './config.options.interface'
-import * as dotenv from 'dotenv'
 import { first } from 'radash'
 import { ensureError } from './helpers'
 

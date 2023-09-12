@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, LoggerService } from '@nestjs/common'
+import { ConsoleLogger, Inject, Injectable, Logger, LoggerService } from '@nestjs/common'
 import { watch, FSWatcher } from 'chokidar'
 import { DynamicConfigOptions } from './config.options.interface'
 import { TypedEventEmitter } from './TypedEventEmitter.class'
@@ -19,7 +19,7 @@ type LocalEventTypes = {
 //TODO rapporteren wat juist gewijzigd is in event
 @Injectable()
 export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
-  private readonly _logger: Logger
+  private readonly _logger: LoggerService
   private readonly _watcher: FSWatcher
   private _config: unknown
   private _packageInfo: Record<string, any>
@@ -40,9 +40,9 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   constructor(
     @Inject(DYNAMIC_CONFIG_OPTIONS) private readonly options: DynamicConfigOptions,
     private readonly _fileLoader: FileLoadService,
-    @Inject('LoggerService') private readonly _log: LoggerService,
   ) {
     super()
+    this._logger = options.logger ?? new ConsoleLogger()
 
     // load the .env file
     const [error1, env] = this._fileLoader.loadEnvFile(this.options)
@@ -56,7 +56,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     // load the package.json file
     const [error2, pkg] = this._fileLoader.loadPkgFile(options)
     if (error2) {
-      this._log.error(error2.message)
+      this._logger.error(error2.message)
       this._packageInfo = {}
     } else {
       this._packageInfo = crush(pkg)
@@ -71,12 +71,13 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       : configFile.endsWith('.json')
       ? 'json'
       : 'other'
+
     if (this._cfgFileType == 'other') {
       const error = new Error(`Configuration file must be .js or .json type`)
       if (options.onLoadErrorCallback) {
         options.onLoadErrorCallback(error)
       } else {
-        this._log.fatal(error.message)
+        this._logger.fatal(error.message)
         process.exit(1)
       }
     }
@@ -96,7 +97,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       if (this.options.onLoadErrorCallback) {
         this.options.onLoadErrorCallback(error)
       } else {
-        this._log.fatal(error.message)
+        this._logger.fatal(error.message)
         process.exit(1)
       }
     }
@@ -124,6 +125,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       }
       this._config = this._cfgFileType === 'js' ? eval(content) : JSON.parse(content)
     } catch (err) {
+      console.log(err)
       const error = ensureError(err)
       if (this.options.onLoadErrorCallback) {
         this.options.onLoadErrorCallback(error)
