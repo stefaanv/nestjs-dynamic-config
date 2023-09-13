@@ -2,7 +2,7 @@ import { ConsoleLogger, Inject, Injectable, Logger, LoggerService } from '@nestj
 import { watch, FSWatcher } from 'chokidar'
 import { DynamicConfigOptions } from './config.options.interface'
 import { TypedEventEmitter } from './TypedEventEmitter.class'
-import { crush } from 'radash'
+import { crush, tryit } from 'radash'
 import { FileLoadService } from './file-loader.service'
 import { ensureError } from './helpers'
 import * as dotenv from 'dotenv'
@@ -42,7 +42,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     private readonly _fileLoader: FileLoadService,
   ) {
     super()
-    this._logger = options.logger ?? new ConsoleLogger()
+    this._logger = options.logger
 
     // load the .env file
     const [error1, env] = this._fileLoader.loadEnvFile(this.options)
@@ -54,12 +54,14 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     }
 
     // load the package.json file
-    const [error2, pkg] = this._fileLoader.loadPkgFile(options)
-    if (error2) {
-      this._logger.error(error2.message)
+    const [error2, pkgContent] = this._fileLoader.loadPkgFile(options)
+    const [error3, pkg] = tryit(JSON.parse.bind(JSON))(pkgContent)
+    if (error2 || error3) {
+      const error = error2 ?? error3
+      this._logger?.error(error.message)
       this._packageInfo = {}
     } else {
-      this._packageInfo = crush(pkg)
+      this._packageInfo = crush(pkg as object)
       this._appName = pkg['name']
       this._version = pkg['version']
     }
@@ -77,7 +79,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       if (options.onLoadErrorCallback) {
         options.onLoadErrorCallback(error)
       } else {
-        this._logger.fatal(error.message)
+        this._logger?.fatal(error.message)
         process.exit(1)
       }
     }
@@ -97,7 +99,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       if (this.options.onLoadErrorCallback) {
         this.options.onLoadErrorCallback(error)
       } else {
-        this._logger.fatal(error.message)
+        this._logger?.fatal(error.message)
         process.exit(1)
       }
     }
@@ -106,7 +108,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     } else {
       setTimeout(() => {
         this.evalConfigFile(fileContent)
-        if (!this.options.noLogOnReload) this._logger.log(`Config file reloaded`)
+        if (!this.options.noLogOnReload) this._logger?.log(`Config file reloaded`)
       }, WAIT_TIME_RELOAD)
     }
   }
@@ -130,7 +132,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       if (this.options.onLoadErrorCallback) {
         this.options.onLoadErrorCallback(error)
       } else {
-        this._logger.fatal(`Error while loading configuration file: ${error.message}`)
+        this._logger?.fatal(`Error while loading configuration file: ${error.message}`)
         process.exit(1)
       }
     }
@@ -145,7 +147,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   get<T = string>(keys: string[] | string, defaultValue: T): T
   get<T = string>(keys: string[] | string, defaultValue?: T): T {
     const key = typeof keys === 'string' ? keys : keys.join('.')
-    return this._config[key] ?? defaultValue
+    return this._config?.[key] ?? defaultValue
   }
 
   getOrFail<T = string>(keys: string[] | string): T {
@@ -165,13 +167,13 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     if (this.options.onLoadErrorCallback) {
       this.options.onLoadErrorCallback(e)
     } else {
-      this._logger.fatal(`Error while loading configuration file: ${e.message}`)
+      this._logger?.fatal(`Error while loading configuration file: ${e.message}`)
       process.exit(1)
     }
   }
 
   private logError(error: unknown) {
     const e = ensureError(error)
-    this._logger.fatal(`Error while loading configuration file: ${e.message}`)
+    this._logger?.fatal(`Error while loading configuration file: ${e.message}`)
   }
 }

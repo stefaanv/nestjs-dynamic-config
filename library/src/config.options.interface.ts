@@ -7,7 +7,10 @@ export interface DynamicConfigOptions {
   rootFolder?: string
   /** set to `true` to get debugging info */
   debug?: boolean
-  /** logger used for debugging info */
+  /**
+   * logger used for debugging info
+   * leave empty for no loggin at all
+   */
   logger?: LoggerService
   /**
    * will be called if reading the configuration file fails

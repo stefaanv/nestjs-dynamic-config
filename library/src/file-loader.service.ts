@@ -24,13 +24,13 @@ export class FileLoadService {
     }
   }
 
-  loadPkgFile(options: DynamicConfigOptions): [Error, undefined] | [undefined, object] {
+  loadPkgFile(options: DynamicConfigOptions): [Error, undefined] | [undefined, string] {
     try {
       const folder = options.rootFolder
       const pkgFile = this.getFirstExisting(folder, ['package.json', '../package.json'])
       if (!pkgFile) return [new Error(`package.json file not found`), undefined]
       const pkgContent = readFileSync(pkgFile, ENCODING)
-      return [undefined, JSON.parse(pkgContent)]
+      return [undefined, pkgContent]
     } catch (error) {
       return [ensureError(error), undefined]
     }
