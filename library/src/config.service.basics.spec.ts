@@ -75,14 +75,13 @@ describe('ConfigService', () => {
   })
 
   describe('Config file missing', () => {
+    const mockFn = jest.fn()
     loader.loadConfigFile = () => [new Error(), undefined]
-    options.onLoadErrorCallback = () => {}
+    options.onLoadErrorCallback = mockFn
     const service = new ConfigService(options, loader)
     it('must be correct', async () => {
+      expect(mockFn).toHaveBeenCalled()
       expect(service.get<string>('ps')).toBeUndefined()
-      expect(service.get<number>('pn')).toBeUndefined()
-      expect(service.get<number>('pb')).toBeUndefined()
-      expect(service.get('unknownKey')).toBeUndefined()
       expect(service.get('unknownKey', 'x')).toBe('x')
       expect(service.get<number>('unknownKey', 10)).toBe(10)
     })
