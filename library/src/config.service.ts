@@ -1,4 +1,4 @@
-import { ConsoleLogger, Inject, Injectable, Logger, LoggerService } from '@nestjs/common'
+import { Inject, Injectable, LoggerService } from '@nestjs/common'
 import { watch, FSWatcher } from 'chokidar'
 import { DynamicConfigOptions } from './config.options.interface'
 import { TypedEventEmitter } from './TypedEventEmitter.class'
@@ -115,16 +115,22 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
 
   evalConfigFile(content: string) {
     try {
-      content = Object.keys(process.env).reduce(
-        (cnt, key) => cnt.replaceAll('{{ENV_' + key + '}}', process.env[key]),
-        content,
-      )
-      if (this._packageInfo) {
-        content = Object.keys(this._packageInfo).reduce(
-          (cnt, key) => cnt.replaceAll('{{pkg.' + key + '}}', this._packageInfo[key]),
-          content,
-        )
-      }
+      if (content) {
+        const match = content.match(/{{ENV_(\w*)}}/g)
+        console.log(match)
+      } // content = Object.keys(process.env).reduce((cnt, key) => {
+      //   if (!cnt) {
+      //     console.log(cnt)
+      //     return ''
+      //   }
+      //   return cnt.replaceAll('{{ENV_' + key + '}}', process.env[key])
+      // }, content)
+      // if (this._packageInfo) {
+      //   content = Object.keys(this._packageInfo).reduce(
+      //     (cnt, key) => cnt.replaceAll('{{pkg.' + key + '}}', this._packageInfo[key]),
+      //     content,
+      //   )
+      // }
       this._config = this._cfgFileType === 'js' ? eval(content) : JSON.parse(content)
     } catch (err) {
       console.log(err)

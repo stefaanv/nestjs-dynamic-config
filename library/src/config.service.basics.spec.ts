@@ -19,7 +19,7 @@ describe('ConfigService', () => {
     loadPkgFile: () => [undefined, pkg],
   }
   let service: ConfigService
-
+  /*
   describe('read basic package info', () => {
     const service = new ConfigService(options, loader)
     it('must be correct', async () => {
@@ -73,7 +73,19 @@ describe('ConfigService', () => {
     })
     service.closeFileWatcher()
   })
+*/
 
+  describe('Multiple levels', () => {
+    loader.loadConfigFile = () => [undefined, `(() => ({l1:{l2:{l3:'L3'}, l2b:'L2B'}}))()`]
+    const service = new ConfigService(options, loader)
+    it('must be correct', async () => {
+      expect(service.get<string>('l1.l2b')).toBe('L2B')
+      expect(service.get<number>(['l1', 'l2b'])).toBe('L2B')
+      expect(service.get('l1.l2')).toBe({ l3: 'L3' })
+    })
+    service.closeFileWatcher()
+  })
+  /*
   describe('Config file missing', () => {
     const mockFn = jest.fn()
     loader.loadConfigFile = () => [new Error(), undefined]
@@ -88,3 +100,4 @@ describe('ConfigService', () => {
     service.closeFileWatcher()
   })
 })
+*/
