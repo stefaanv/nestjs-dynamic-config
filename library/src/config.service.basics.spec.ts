@@ -9,7 +9,6 @@ describe('Basics', () => {
   let service: ConfigService
 
   beforeEach(() => {
-    // console.log('BeforeEach')
     options = { configFile: '' } as DynamicConfigOptions
     fakeContent = {
       fake: true,
@@ -24,10 +23,9 @@ describe('Basics', () => {
 
   afterEach(() => {
     service.closeFileWatcher()
-    console.log('after')
   })
 
-  it('read basic package info', async () => {
+  it('read basic package info', () => {
     expect(service.appName).toBe('app')
     expect(service.version).toBe('1.2.30')
     expect(service.packageInfo['author']).toBe('developer')
@@ -35,7 +33,7 @@ describe('Basics', () => {
     service.closeFileWatcher()
   })
 
-  it('package.json file cannot be loaded', async () => {
+  it('package.json file cannot be loaded', () => {
     delete process.env.VALUE
     fakeContent.pkgContent = undefined
     loader = new FileLoadService(fakeContent)
@@ -46,24 +44,21 @@ describe('Basics', () => {
     expect(service.packageInfo['unknown-key']).toBeUndefined()
     service.closeFileWatcher()
   })
-  it('Load basic .env file', async () => {
+  it('Load basic .env file', () => {
     expect(process.env.KEY).toBe('VALUE')
     expect(process.env.UNKNOWN_KEY).toBeUndefined()
     service.closeFileWatcher()
   })
-  /* 
 
-  describe('.env file cannot be loaded', () => {
-    delete process.env.KEY
+  it('.env file cannot be loaded', () => {
     fakeContent.envContent = undefined
-    let loader = new FileLoadService(fakeContent)
-    const service = new ConfigService(options, loader)
-    it('all keys must return undefined', async () => {
-      expect(process.env.KEY).toBeUndefined()
-      expect(process.env.UNKNOWN_KEY).toBeUndefined()
-    })
-    service.closeFileWatcher()
+    loader = new FileLoadService(fakeContent)
+    service = new ConfigService(options, loader)
+    expect(process.env.KEY).toBeUndefined()
+    expect(process.env.UNKNOWN_KEY).toBeUndefined()
   })
+
+  /*
   describe('Basic config', () => {
     const service = new ConfigService(options, loader)
     it('must be as defined', async () => {
