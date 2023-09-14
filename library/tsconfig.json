@@ -12,6 +12,11 @@
     "baseUrl": "./",
     "noLib": false
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "src/**/*.ts",
+    "src/config.service.basics.spec.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

@@ -8,10 +8,11 @@ export class AppController {
     const test = config.get('devName')
     this.devNameProxy = config.createProxy('devName')
     console.log('appname', config.appName)
-    console.log('version', config.version)
+    console.log('key', config.get('key'))
     this.config.on('reloaded', () => {
       console.log('devName', this.devNameProxy())
       console.log('name', this.config.get<string>('appName'))
+      console.log('key', config.get('key'))
     })
   }
 

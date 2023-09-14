@@ -1,7 +1,7 @@
 import { ModuleMocker } from 'jest-mock'
 import { ConfigService } from './config.service'
 import { DynamicConfigOptions } from './config.options.interface'
-import { FileLoadService } from './file-loader.service'
+import { FakeContent, FileLoadService } from './file-loader.service'
 
 const moduleMocker = new ModuleMocker(global)
 
@@ -9,17 +9,15 @@ describe('ConfigService', () => {
   let options: DynamicConfigOptions = {
     configFile: 'test.js',
   }
-  let config = `(() => ({ps: 'string', pn:10, pb: true}))()`
-  let pkg = `{ "name": "app", "author": "developer", "version": "1.2.30" }`
-  let env = 'KEY=VALUE'
-  let loader: FileLoadService = {
-    getFirstExisting: () => undefined,
-    loadConfigFile: () => [undefined, config],
-    loadEnvFile: () => [undefined, env],
-    loadPkgFile: () => [undefined, pkg],
+  let fakeContent: FakeContent = {
+    fake: true,
+    envContent: 'KEY=VALUE',
+    pkgContent: `{ "name": "app", "author": "developer", "version": "1.2.30" }`,
+    configContent: `(() => ({ps: 'string', pn:10, pb: true}))()`,
+    configFileType: 'js',
   }
+  let loader = new FileLoadService(fakeContent)
   let service: ConfigService
-  /*
   describe('read basic package info', () => {
     const service = new ConfigService(options, loader)
     it('must be correct', async () => {
@@ -30,6 +28,7 @@ describe('ConfigService', () => {
     })
     service.closeFileWatcher()
   })
+  /*
 
   describe('package.json file cannot be loaded', () => {
     loader.loadPkgFile = () => [new Error(), undefined]
@@ -73,10 +72,9 @@ describe('ConfigService', () => {
     })
     service.closeFileWatcher()
   })
-*/
 
   describe('Multiple levels', () => {
-    loader.loadConfigFile = () => [undefined, `(() => ({l1:{l2:{l3:'L3'}, l2b:'L2B'}}))()`]
+    loader.loadConfigFile = () => `(() => ({l1:{l2:{l3:'L3'}, l2b:'L2B'}}))()`
     const service = new ConfigService(options, loader)
     it('must be correct', async () => {
       expect(service.get<string>('l1.l2b')).toBe('L2B')
@@ -85,7 +83,7 @@ describe('ConfigService', () => {
     })
     service.closeFileWatcher()
   })
-  /*
+
   describe('Config file missing', () => {
     const mockFn = jest.fn()
     loader.loadConfigFile = () => [new Error(), undefined]
@@ -99,5 +97,5 @@ describe('ConfigService', () => {
     })
     service.closeFileWatcher()
   })
-})
 */
+})

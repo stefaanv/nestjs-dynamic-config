@@ -2,7 +2,7 @@ import { Inject, Injectable, LoggerService } from '@nestjs/common'
 import { watch, FSWatcher } from 'chokidar'
 import { DynamicConfigOptions } from './config.options.interface'
 import { TypedEventEmitter } from './TypedEventEmitter.class'
-import { crush, tryit } from 'radash'
+import { crush } from 'radash'
 import { FileLoadService } from './file-loader.service'
 import { ensureError } from './helpers'
 import * as dotenv from 'dotenv'
@@ -13,6 +13,8 @@ const WAIT_TIME_RELOAD = 100
 type LocalEventTypes = {
   reloaded: []
 }
+
+export type ConfigFileTypes = 'js' | 'json' | 'other'
 
 //TODO git commit opvragen (productionCommitEnvVareName optie voor productie)
 //TODO validatie toevoegen
@@ -25,7 +27,6 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   private _packageInfo: Record<string, any>
   private _appName = '<unknown>'
   private _version = '<unknown>'
-  private _cfgFileType: 'js' | 'json' | 'other'
 
   get appName() {
     return this._appName
@@ -45,36 +46,27 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     this._logger = options.logger
 
     // load the .env file
-    const [error1, env] = this._fileLoader.loadEnvFile(this.options)
-    if (error1) {
-      this.logError(error1)
-    } else {
+    try {
+      const env = this._fileLoader.loadEnvFile()
       const parsed = dotenv.parse(env)
       dotenv.populate(process.env, parsed)
+    } catch (err) {
+      this.logError(ensureError(err))
     }
 
     // load the package.json file
-    const [error2, pkgContent] = this._fileLoader.loadPkgFile(options)
-    const [error3, pkg] = tryit(JSON.parse.bind(JSON))(pkgContent)
-    if (error2 || error3) {
-      const error = error2 ?? error3
-      this._logger?.error(error.message)
-      this._packageInfo = {}
-    } else {
+    try {
+      const pkgContent = this._fileLoader.loadPkgFile()
+      const pkg = JSON.parse(pkgContent)
       this._packageInfo = crush(pkg as object)
       this._appName = pkg['name']
       this._version = pkg['version']
+    } catch (err) {
+      this._logger?.error(ensureError(err).message)
     }
 
-    // check configFile type
-    const configFile = options.configFile
-    this._cfgFileType = configFile.endsWith('.js')
-      ? 'js'
-      : configFile.endsWith('.json')
-      ? 'json'
-      : 'other'
-
-    if (this._cfgFileType == 'other') {
+    // throw error on unsupported config file type
+    if (this._fileLoader.configFileType == 'other') {
       const error = new Error(`Configuration file must be .js or .json type`)
       if (options.onLoadErrorCallback) {
         options.onLoadErrorCallback(error)
@@ -85,55 +77,74 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     }
 
     // Initial load the config file and start the file watcher
+    const configFile = options.configFile
     this.loadConfig(configFile, true)
     this._watcher = watch(options.configFile).on('change', () => {
       this.loadConfig(configFile)
-      this.emit('reloaded')
     })
+  }
+
+  private loadConfigInternal() {
+    try {
+      const fileContent = this._fileLoader.loadConfigFile(this.options.configFile)
+      // console.log(fileContent)
+      this._config = this.evalConfigFile(fileContent)
+    } catch (err) {
+      if (this.options.onLoadErrorCallback) {
+        this.options.onLoadErrorCallback(err)
+      } else {
+        this._logger?.fatal(ensureError(err).message)
+        process.exit(1)
+      }
+    }
   }
 
   private loadConfig(configFile: string, initial = false) {
     // load or reload the config file
-    const [error, fileContent] = this._fileLoader.loadConfigFile(configFile)
-    if (error) {
-      if (this.options.onLoadErrorCallback) {
-        this.options.onLoadErrorCallback(error)
+    try {
+      if (initial) {
+        this.loadConfigInternal()
       } else {
-        this._logger?.fatal(error.message)
+        setTimeout(() => {
+          this.loadConfigInternal()
+          if (!this.options.noLogOnReload) this._logger?.log(`Config file reloaded`)
+          this.emit('reloaded')
+        }, WAIT_TIME_RELOAD)
+      }
+    } catch (err) {
+      if (this.options.onLoadErrorCallback) {
+        this.options.onLoadErrorCallback(err)
+      } else {
+        this._logger?.fatal(ensureError(err).message)
         process.exit(1)
       }
     }
-    if (initial) {
-      this.evalConfigFile(fileContent)
-    } else {
-      setTimeout(() => {
-        this.evalConfigFile(fileContent)
-        if (!this.options.noLogOnReload) this._logger?.log(`Config file reloaded`)
-      }, WAIT_TIME_RELOAD)
-    }
   }
 
-  evalConfigFile(content: string) {
+  evalConfigFile(content: string): object {
+    if (!content) return {}
     try {
-      if (content) {
-        const match = content.match(/{{ENV_(\w*)}}/g)
-        console.log(match)
-      } // content = Object.keys(process.env).reduce((cnt, key) => {
-      //   if (!cnt) {
-      //     console.log(cnt)
-      //     return ''
-      //   }
-      //   return cnt.replaceAll('{{ENV_' + key + '}}', process.env[key])
-      // }, content)
-      // if (this._packageInfo) {
-      //   content = Object.keys(this._packageInfo).reduce(
-      //     (cnt, key) => cnt.replaceAll('{{pkg.' + key + '}}', this._packageInfo[key]),
-      //     content,
-      //   )
-      // }
-      this._config = this._cfgFileType === 'js' ? eval(content) : JSON.parse(content)
+      const envKeys = Array.from(content.matchAll(/{{ENV_(\w*)}}/g), a => a[1])
+      const pkgKeys = Array.from(content.matchAll(/{{pkg.(\w*)}}/g), a => a[1])
+
+      let cnt = content
+      if (envKeys.length > 0) {
+        for (const key of envKeys) {
+          const longKey = `{{ENV_${key}}}`
+          const value = process.env[key] ?? longKey //TODO! ontbreken van waarde rapporteren
+          cnt = cnt.replaceAll(longKey, value)
+        }
+      }
+      if (this.packageInfo && pkgKeys.length > 0) {
+        for (const key of pkgKeys) {
+          const longKey = `{{pkg.${key}}}`
+          const value = this._packageInfo[key] ?? longKey //TODO! ontbreken van waarde rapporteren
+          cnt = cnt.replaceAll(longKey, value)
+        }
+      }
+
+      return this._fileLoader.configFileType === 'js' ? eval(cnt) : JSON.parse(cnt)
     } catch (err) {
-      console.log(err)
       const error = ensureError(err)
       if (this.options.onLoadErrorCallback) {
         this.options.onLoadErrorCallback(error)
