@@ -2,7 +2,7 @@ import { Inject, Injectable, LoggerService } from '@nestjs/common'
 import { watch, FSWatcher } from 'chokidar'
 import { DynamicConfigOptions } from './config.options.interface'
 import { TypedEventEmitter } from './TypedEventEmitter.class'
-import { crush } from 'radash'
+import { crush, get } from 'radash'
 import { FileLoadService } from './file-loader.service'
 import { ensureError } from './helpers'
 import * as dotenv from 'dotenv'
@@ -37,6 +37,9 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   get packageInfo() {
     return this._packageInfo
   }
+  get config() {
+    return this._config
+  }
 
   constructor(
     @Inject(DYNAMIC_CONFIG_OPTIONS) private readonly options: DynamicConfigOptions,
@@ -62,6 +65,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       this._appName = pkg['name']
       this._version = pkg['version']
     } catch (err) {
+      this._packageInfo = {}
       this._logger?.error(ensureError(err).message)
     }
 
@@ -77,18 +81,18 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     }
 
     // Initial load the config file and start the file watcher
-    const configFile = options.configFile
-    this.loadConfig(configFile, true)
+    this.loadConfig(true)
     this._watcher = watch(options.configFile).on('change', () => {
-      this.loadConfig(configFile)
+      this.loadConfig()
     })
   }
 
   private loadConfigInternal() {
     try {
-      const fileContent = this._fileLoader.loadConfigFile(this.options.configFile)
+      const fileContent = this._fileLoader.loadConfigFile()
       // console.log(fileContent)
       this._config = this.evalConfigFile(fileContent)
+      // console.log(this._config)
     } catch (err) {
       if (this.options.onLoadErrorCallback) {
         this.options.onLoadErrorCallback(err)
@@ -99,7 +103,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     }
   }
 
-  private loadConfig(configFile: string, initial = false) {
+  private loadConfig(initial = false) {
     // load or reload the config file
     try {
       if (initial) {
@@ -135,6 +139,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
           cnt = cnt.replaceAll(longKey, value)
         }
       }
+
       if (this.packageInfo && pkgKeys.length > 0) {
         for (const key of pkgKeys) {
           const longKey = `{{pkg.${key}}}`
@@ -142,6 +147,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
           cnt = cnt.replaceAll(longKey, value)
         }
       }
+      // console.log(cnt)
 
       return this._fileLoader.configFileType === 'js' ? eval(cnt) : JSON.parse(cnt)
     } catch (err) {
@@ -164,7 +170,9 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   get<T = string>(keys: string[] | string, defaultValue: T): T
   get<T = string>(keys: string[] | string, defaultValue?: T): T {
     const key = typeof keys === 'string' ? keys : keys.join('.')
-    return this._config?.[key] ?? defaultValue
+    if (!this._config) return defaultValue
+    const result = get(this._config, key) ?? defaultValue
+    return result as T
   }
 
   getOrFail<T = string>(keys: string[] | string): T {

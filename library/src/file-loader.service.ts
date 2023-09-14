@@ -24,7 +24,10 @@ export class FileLoadService {
   ) {}
 
   loadEnvFile(): string {
-    if ('fake' in this.options) return this.options.envContent
+    if ('fake' in this.options) {
+      if (!this.options.envContent) throw new Error('file not found')
+      return this.options.envContent
+    }
     const rootFolder = this.options.rootFolder
     if (!rootFolder) throw new Error('No "rootFolder" provided')
     // try to find the .env file
@@ -36,7 +39,10 @@ export class FileLoadService {
   }
 
   loadPkgFile(): string {
-    if ('fake' in this.options) return this.options.pkgContent
+    if ('fake' in this.options) {
+      if (!this.options.pkgContent) throw new Error('file not found')
+      return this.options.pkgContent
+    }
     const folder = this.options.rootFolder
     const pkgFile = this.getFirstExisting(folder, ['package.json', '../package.json'])
     if (!pkgFile) throw new Error(`package.json file not found`)
@@ -44,9 +50,12 @@ export class FileLoadService {
     return pkgContent
   }
 
-  loadConfigFile(path: string): string {
-    if ('fake' in this.options) return this.options.configContent
-    return readFileSync(path, ENCODING)
+  loadConfigFile(): string {
+    if ('fake' in this.options) {
+      if (!this.options.configContent) throw new Error('file not found')
+      return this.options.configContent
+    }
+    return readFileSync(this.options.configFile, ENCODING)
   }
 
   get configFileType(): ConfigFileTypes {
