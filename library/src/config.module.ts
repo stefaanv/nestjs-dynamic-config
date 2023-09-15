@@ -13,11 +13,6 @@ export class ConfigModule {
           provide: DYNAMIC_CONFIG_OPTIONS,
           useValue: options,
         },
-        //TODO! waarom werkt die niet met DYNAMIC_CONFIG_OPTIONS ???
-        {
-          provide: 'FAKE_LOADER',
-          useValue: options,
-        },
         FileLoadService,
         ConfigService,
       ],

@@ -2,7 +2,7 @@ import { Inject, Injectable, LoggerService } from '@nestjs/common'
 import { watch, FSWatcher } from 'chokidar'
 import { DynamicConfigOptions } from './config.options.interface'
 import { TypedEventEmitter } from './TypedEventEmitter.class'
-import { crush, get } from 'radash'
+import { crush, get, isEmpty } from 'radash'
 import { FileLoadService } from './file-loader.service'
 import { ensureError } from './helpers'
 import * as dotenv from 'dotenv'
@@ -14,8 +14,15 @@ type LocalEventTypes = {
   reloaded: []
 }
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
 export type ConfigFileTypes = 'js' | 'json' | 'other'
 
+const RELOADED_MSG = `Config file reloaded`
+const MISSING_ENV_VAR_MSG = ` is not a defined environment variable`
+const MISSING_PKG_INFO_MSG = ` is not defined in package.json`
+const UNSUPPORTED_FILE_TYPE_MSG =
+  'Unsupported config file type - only .js and JSON files are supported'
 //TODO git commit opvragen (productionCommitEnvVareName optie voor productie)
 //TODO validatie toevoegen
 //TODO rapporteren wat juist gewijzigd is in event
@@ -23,8 +30,8 @@ export type ConfigFileTypes = 'js' | 'json' | 'other'
 export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   private readonly _logger: LoggerService
   private readonly _watcher: FSWatcher
-  private _config: unknown
-  private _packageInfo: Record<string, any>
+  private _config: object = {}
+  private _packageInfo: Record<string, any> = {}
   private _appName = '<unknown>'
   private _version = '<unknown>'
 
@@ -48,122 +55,14 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     super()
     this._logger = options.logger
 
-    // load the .env file
-    try {
-      const env = this._fileLoader.loadEnvFile()
-      const parsed = dotenv.parse(env)
-      dotenv.populate(process.env, parsed)
-    } catch (err) {
-      this.logError(ensureError(err))
-    }
-
-    // load the package.json file
-    try {
-      const pkgContent = this._fileLoader.loadPkgFile()
-      const pkg = JSON.parse(pkgContent)
-      this._packageInfo = crush(pkg as object)
-      this._appName = pkg['name']
-      this._version = pkg['version']
-    } catch (err) {
-      this._packageInfo = {}
-      this._logger?.error(ensureError(err).message)
-    }
-
-    // throw error on unsupported config file type
-    if (this._fileLoader.configFileType == 'other') {
-      const error = new Error(`Configuration file must be .js or .json type`)
-      if (options.onLoadErrorCallback) {
-        options.onLoadErrorCallback(error)
-      } else {
-        this._logger?.fatal(error.message)
-        process.exit(1)
-      }
-    }
-
     // Initial load the config file and start the file watcher
-    this.loadConfig(true)
-    this._watcher = watch(options.configFile).on('change', () => {
-      this.loadConfig()
-    })
-  }
+    this.loadConfigFile(true)
 
-  private loadConfigInternal() {
-    try {
-      const fileContent = this._fileLoader.loadConfigFile()
-      // console.log(fileContent)
-      this._config = this.evalConfigFile(fileContent)
-      // console.log(this._config)
-    } catch (err) {
-      if (this.options.onLoadErrorCallback) {
-        this.options.onLoadErrorCallback(err)
-      } else {
-        this._logger?.fatal(ensureError(err).message)
-        process.exit(1)
-      }
+    if (!this._fileLoader.isFake) {
+      this._watcher = watch(options.configFile).on('change', () => {
+        this.loadConfigFile() //TODO! dit zal wrschnlk nog moeten veranderen
+      })
     }
-  }
-
-  private loadConfig(initial = false) {
-    // load or reload the config file
-    try {
-      if (initial) {
-        this.loadConfigInternal()
-      } else {
-        setTimeout(() => {
-          this.loadConfigInternal()
-          if (!this.options.noLogOnReload) this._logger?.log(`Config file reloaded`)
-          this.emit('reloaded')
-        }, WAIT_TIME_RELOAD)
-      }
-    } catch (err) {
-      if (this.options.onLoadErrorCallback) {
-        this.options.onLoadErrorCallback(err)
-      } else {
-        this._logger?.fatal(ensureError(err).message)
-        process.exit(1)
-      }
-    }
-  }
-
-  evalConfigFile(content: string): object {
-    if (!content) return {}
-    try {
-      const envKeys = Array.from(content.matchAll(/{{ENV_(\w*)}}/g), a => a[1])
-      const pkgKeys = Array.from(content.matchAll(/{{pkg.(\w*)}}/g), a => a[1])
-
-      let cnt = content
-      if (envKeys.length > 0) {
-        for (const key of envKeys) {
-          const longKey = `{{ENV_${key}}}`
-          const value = process.env[key] ?? longKey //TODO! ontbreken van waarde rapporteren
-          cnt = cnt.replaceAll(longKey, value)
-        }
-      }
-
-      if (this.packageInfo && pkgKeys.length > 0) {
-        for (const key of pkgKeys) {
-          const longKey = `{{pkg.${key}}}`
-          const value = this._packageInfo[key] ?? longKey //TODO! ontbreken van waarde rapporteren
-          cnt = cnt.replaceAll(longKey, value)
-        }
-      }
-      // console.log(cnt)
-
-      return this._fileLoader.configFileType === 'js' ? eval(cnt) : JSON.parse(cnt)
-    } catch (err) {
-      const error = ensureError(err)
-      if (this.options.onLoadErrorCallback) {
-        this.options.onLoadErrorCallback(error)
-      } else {
-        this._logger?.fatal(`Error while loading configuration file: ${error.message}`)
-        process.exit(1)
-      }
-    }
-  }
-
-  closeFileWatcher() {
-    this._watcher.unwatch('*')
-    this._watcher.close()
   }
 
   get<T = string>(keys: string[] | string): T | undefined
@@ -187,18 +86,122 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     return () => this.get<T>(keys, defaultValue)
   }
 
-  private logFatal(error: unknown) {
-    const e = ensureError(error)
-    if (this.options.onLoadErrorCallback) {
-      this.options.onLoadErrorCallback(e)
-    } else {
-      this._logger?.fatal(`Error while loading configuration file: ${e.message}`)
-      process.exit(1)
+  public async forceReload() {
+    this.loadConfigFile(true)
+  }
+
+  private async loadConfigFile(initial = false) {
+    // load the .env file
+    this.loadEnvFile()
+
+    // load the package.json file
+    this.loadPkgFile()
+
+    // load or reload the config file
+    if (this._fileLoader.configFileType === 'other') {
+      this.handleFatalError(new Error(UNSUPPORTED_FILE_TYPE_MSG))
+      return
+    }
+    try {
+      if (!initial && !this._fileLoader.isFake) {
+        await sleep(WAIT_TIME_RELOAD)
+      }
+      this._config = this.parseConfigFile()
+
+      if (!initial) {
+        // reload messaging
+        if (!this.options.noLogOnReload) this._logger?.log(RELOADED_MSG)
+        this.emit('reloaded')
+      }
+    } catch (error) {
+      this.handleFatalError(error)
     }
   }
 
-  private logError(error: unknown) {
-    const e = ensureError(error)
-    this._logger?.fatal(`Error while loading configuration file: ${e.message}`)
+  private handleFatalError(error: Error) {
+    if (this.options.onLoadErrorCallback) {
+      this.options.onLoadErrorCallback(error)
+    } else {
+      this._logger?.fatal(error.message)
+      if (!this._fileLoader.isFake) process.exit(1)
+    }
+  }
+
+  private parseConfigFile(): object {
+    let [error, content] = this._fileLoader.loadConfigFile()
+    if (error) {
+      // error while loading the config file, report this
+      this.handleFatalError(error)
+      return
+    }
+    try {
+      const envKeys = Array.from(content.matchAll(/{{ENV_(\w*)}}/g), a => a[1])
+      const pkgKeys = Array.from(content.matchAll(/{{pkg.(\w*)}}/g), a => a[1])
+
+      if (envKeys.length > 0) {
+        for (const key of envKeys) {
+          const longKey = `{{ENV_${key}}}`
+          const value = process.env[key]
+          if (!value) {
+            this._logger?.debug(key + MISSING_ENV_VAR_MSG)
+          } else {
+            content = content.replaceAll(longKey, value)
+          }
+        }
+      }
+
+      if (!isEmpty(this.packageInfo)) {
+        for (const key of pkgKeys) {
+          const longKey = `{{pkg.${key}}}`
+          const value = this._packageInfo[key]
+          if (!value) {
+            this._logger?.debug(key + MISSING_PKG_INFO_MSG)
+          } else {
+            content = content.replaceAll(longKey, value)
+          }
+        }
+      }
+
+      return this._fileLoader.configFileType === 'js' ? eval(content) : JSON.parse(content)
+    } catch (error) {
+      this.handleFatalError(error)
+    }
+  }
+
+  private loadPkgFile() {
+    const pkgContent = this._fileLoader.loadSupportFile('pkg')
+    if (isEmpty(pkgContent)) {
+      this._packageInfo = {}
+      return
+    }
+    try {
+      const pkg = JSON.parse(pkgContent)
+      this._packageInfo = crush(pkg as object)
+      this._appName = pkg['name']
+      this._version = pkg['version']
+    } catch (err) {
+      const msg = `Unable to parse package.json: ${ensureError(err).message}`
+      this._packageInfo = {}
+      this._logger?.debug(msg)
+    }
+  }
+
+  private loadEnvFile() {
+    const envContent = this._fileLoader.loadSupportFile('env')
+    if (!envContent) return // stop execution, only global env-vars will be loaded
+    try {
+      const parsed = dotenv.parse(envContent)
+      dotenv.populate(process.env, parsed)
+    } catch (err) {
+      const msg = `Unable to parse the .env file: ${ensureError(err).message}`
+      this._logger?.debug(msg)
+    }
+  }
+
+  closeFileWatcher() {
+    if (!this._fileLoader.isFake) {
+      this._watcher.unwatch('*')
+      this._watcher.close()
+    }
   }
 }

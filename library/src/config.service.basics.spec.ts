@@ -9,6 +9,7 @@ describe('Basics', () => {
   let service: ConfigService
 
   beforeEach(() => {
+    delete process.env.KEY
     options = { configFile: '' } as DynamicConfigOptions
     fakeContent = {
       fake: true,
@@ -18,106 +19,82 @@ describe('Basics', () => {
       configFileType: 'js',
     }
     loader = new FileLoadService(fakeContent)
-    service = new ConfigService(options, loader)
   })
 
   afterEach(() => {
-    service.closeFileWatcher()
+    service?.closeFileWatcher()
   })
 
-  it('read basic package info', () => {
+  it('read basic package info', async () => {
+    service = new ConfigService(options, loader)
     expect(service.appName).toBe('app')
     expect(service.version).toBe('1.2.30')
     expect(service.packageInfo['author']).toBe('developer')
     expect(service.packageInfo['unknown-key']).toBeUndefined()
-    service.closeFileWatcher()
   })
 
-  it('package.json file cannot be loaded', () => {
-    delete process.env.VALUE
-    fakeContent.pkgContent = undefined
-    loader = new FileLoadService(fakeContent)
+  it('package.json file cannot be loaded', async () => {
+    loader.fakeContent.pkgContent = undefined
     service = new ConfigService(options, loader)
     expect(service.appName).toBe('<unknown>')
     expect(service.version).toBe('<unknown>')
     expect(service.packageInfo['author']).toBeUndefined()
     expect(service.packageInfo['unknown-key']).toBeUndefined()
-    service.closeFileWatcher()
-  })
-  it('Load basic .env file', () => {
-    expect(process.env.KEY).toBe('VALUE')
-    expect(process.env.UNKNOWN_KEY).toBeUndefined()
-    service.closeFileWatcher()
   })
 
-  it('.env file cannot be loaded', () => {
-    fakeContent.envContent = undefined
-    loader = new FileLoadService(fakeContent)
+  it('Load basic .env file', async () => {
+    service = new ConfigService(options, loader)
+    expect(process.env.KEY).toBe('VALUE')
+    expect(process.env.UNKNOWN_KEY).toBeUndefined()
+  })
+
+  it('.env file cannot be loaded', async () => {
+    loader.fakeContent.envContent = undefined
     service = new ConfigService(options, loader)
     expect(process.env.KEY).toBeUndefined()
     expect(process.env.UNKNOWN_KEY).toBeUndefined()
   })
 
-  /*
-  describe('Basic config', () => {
-    const service = new ConfigService(options, loader)
-    it('must be as defined', async () => {
-      expect(service.get<string>('ps')).toBe('string')
-      expect(service.get<number>('pn')).toBe(10)
-      expect(service.get<number>('pb')).toBeTruthy()
-      expect(service.get('unknownKey')).toBeUndefined()
-      expect(service.get('unknownKey', 'x')).toBe('x')
-      expect(service.get<number>('unknownKey', 10)).toBe(10)
-    })
-    service.closeFileWatcher()
+  it('Basic config, no substitution', async () => {
+    service = new ConfigService(options, loader)
+    expect(service.get<string>('ps')).toBe('string')
+    expect(service.get<number>('pn')).toBe(10)
+    expect(service.get<number>('pb')).toBeTruthy()
+    expect(service.get('unknownKey')).toBeUndefined()
+    expect(service.get('unknownKey', 'x')).toBe('x')
+    expect(service.get<number>('unknownKey', 10)).toBe(10)
   })
 
-  describe('Basic config from JSON file', () => {
+  it('Basic config from JSON file', async () => {
     fakeContent.configContent = '{"ps": "string", "pn":10, "pb": true}'
     fakeContent.configFileType = 'json'
-    let loader = new FileLoadService(fakeContent)
-    const service = new ConfigService(options, loader)
-    it('must be as defined', async () => {
-      expect(service.get<string>('ps')).toBe('string')
-      expect(service.get<number>('pn')).toBe(10)
-      expect(service.get<number>('pb')).toBeTruthy()
-      expect(service.get('unknownKey')).toBeUndefined()
-      expect(service.get('unknownKey', 'x')).toBe('x')
-      expect(service.get<number>('unknownKey', 10)).toBe(10)
-    })
-    service.closeFileWatcher()
+    service = new ConfigService(options, loader)
+    expect(service.get<string>('ps')).toBe('string')
+    expect(service.get<number>('pn')).toBe(10)
+    expect(service.get<number>('pb')).toBeTruthy()
+    expect(service.get('unknownKey')).toBeUndefined()
+    expect(service.get('unknownKey', 'x')).toBe('x')
+    expect(service.get<number>('unknownKey', 10)).toBe(10)
   })
 
-  describe('Multiple levels', () => {
+  it('Basic config with multiple levels', async () => {
     fakeContent.configContent = `(() => ({l1:{l2:{l3:'L3'}, l2b:'L2B'}}))()`
     fakeContent.configFileType = 'js'
-    let loader = new FileLoadService(fakeContent)
-    const service = new ConfigService(options, loader)
-    it('dotted key notation', async () => {
-      expect(service.get<string>('l1.l2b')).toBe('L2B')
-    })
-    it('array of keys', async () => {
-      expect(service.get<number>(['l1', 'l2b'])).toBe('L2B')
-    })
-    it('dotted keys to object', async () => {
-      expect(service.get('l1.l2')).toStrictEqual({ l3: 'L3' })
-    })
-    service.closeFileWatcher()
+    service = new ConfigService(options, loader)
+    expect(service.get<string>('l1.l2b')).toBe('L2B')
+    expect(service.get<number>(['l1', 'l2b'])).toBe('L2B')
+    expect(service.get('l1.l2')).toStrictEqual({ l3: 'L3' })
   })
 
-  describe('Config file missing', () => {
+  it('Config file missing', async () => {
     const mockFn = jest.fn()
     fakeContent.configContent = undefined
     let loader = new FileLoadService(fakeContent)
     options.onLoadErrorCallback = mockFn
     const service = new ConfigService(options, loader)
-    it('must be correct', async () => {
-      expect(mockFn).toHaveBeenCalled()
-      expect(service.get<string>('ps')).toBeUndefined()
-      expect(service.get('unknownKey', 'x')).toBe('x')
-      expect(service.get<number>('unknownKey', 10)).toBe(10)
-    })
-    service.closeFileWatcher()
+    expect(mockFn).toHaveBeenCalled()
+    expect(service.get<string>('ps')).toBeUndefined()
+    expect(service.get('unknownKey', 'x')).toBe('x')
+    expect(service.get<number>('unknownKey', 10)).toBe(10)
   })
-  */
 })
