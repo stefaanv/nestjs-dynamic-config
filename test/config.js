@@ -1,7 +1,8 @@
-;(function () {
-  return {
-    devName: '{{ENV_DEV}}',
-    appName: '{{pkg.name}}',
-    key: 'value2',
-  }
-})()
+;(() => ({
+  name: 'some-name3',
+  length: 100,
+  database: {
+    host: 'myHost',
+    user: 'root',
+  },
+}))()

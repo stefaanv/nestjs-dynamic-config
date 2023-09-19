@@ -1,6 +1,5 @@
-import { Module, ConsoleLogger, Global, Scope, LoggerService } from '@nestjs/common'
+import { Module, Global } from '@nestjs/common'
 import { AppController } from './app.controller'
-import { AppService } from './app.service'
 import { ConfigModule } from '@itanium.eu/nestjs-dynamic-config'
 
 @Global()
@@ -12,10 +11,5 @@ import { ConfigModule } from '@itanium.eu/nestjs-dynamic-config'
     }),
   ],
   controllers: [AppController],
-  providers: [
-    AppService,
-    { provide: 'LoggerService', useClass: ConsoleLogger, scope: Scope.DEFAULT },
-  ],
-  exports: ['LoggerService'],
 })
 export class AppModule {}
