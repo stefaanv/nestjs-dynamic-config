@@ -13,7 +13,7 @@ export interface FakeContent {
   fake: true
   envContent: string | undefined
   pkgContent: string | undefined
-  configContent: string | undefined
+  configContent: string | Error | undefined
   configFileType: ConfigFileTypes
 }
 
@@ -61,6 +61,7 @@ export class FileLoadService {
 
   loadConfigFile(): [Error, undefined] | [undefined, string] {
     if (this._fakeContent) {
+      if (this._fakeContent.configContent instanceof Error) throw this._fakeContent.configContent
       if (this._fakeContent.configContent) {
         return [undefined, this._fakeContent.configContent]
       } else {

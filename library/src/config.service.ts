@@ -23,9 +23,7 @@ const MISSING_ENV_VAR_MSG = ` is not a defined environment variable`
 const MISSING_PKG_INFO_MSG = ` is not defined in package.json`
 const UNSUPPORTED_FILE_TYPE_MSG =
   'Unsupported config file type - only .js and JSON files are supported'
-//TODO git commit opvragen (productionCommitEnvVareName optie voor productie)
-//TODO validatie toevoegen
-//TODO rapporteren wat juist gewijzigd is in event
+
 @Injectable()
 export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   private readonly _logger: LoggerService
@@ -122,7 +120,9 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     if (this.options.onLoadErrorCallback) {
       this.options.onLoadErrorCallback(error)
     } else {
-      this._logger?.fatal(error.message)
+      try {
+        this._logger?.fatal(error.message)
+      } catch (e) {}
       this._fileLoader.exit(1)
     }
   }
