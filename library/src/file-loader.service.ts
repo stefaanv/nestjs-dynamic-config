@@ -24,7 +24,7 @@ export class FileLoadService {
   public exit: (exitCode: number) => {} = process.exit
 
   constructor(
-    @Inject(DYNAMIC_CONFIG_OPTIONS)
+    @Inject('DYNAMIC_CONFIG_OPTIONS')
     private readonly optionsOrFakeContent: DynamicConfigOptions | FakeContent,
   ) {
     if ('fake' in optionsOrFakeContent) {

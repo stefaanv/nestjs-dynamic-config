@@ -4,12 +4,16 @@ Dynamic configuration module for [Nest](https://github.com/nestjs/nest) with aut
 
 ## Install
 
-```
+```bash
 npm install -s  @itanium.eu/nestjs-dynamic-config
 ```
 
 ## Usage
-Create a `.js` or `.json` configuration file (here in the root folder of the project)
+
+- create a [new Nestjs app](<https://docs.nestjs.com/first-steps>)
+
+- create a `.js` or `.json` configuration file (here in the root folder of the project)
+
 ```js
 // <project root>/config.js
 (
@@ -24,7 +28,8 @@ Create a `.js` or `.json` configuration file (here in the root folder of the pro
 )()
 ```
 
-Define the module in your project's app module
+- define the module in your project's app module
+
 ```ts
 @Global()
 @Module({
@@ -61,8 +66,8 @@ export class AppController {
   }
 }
 ```
-Call the API endpoints using your favorite app or browser.
+Run your app and call the API endpoints using your favorite  browser.
 
-Change the configuration file and refresh the browser/app,
+Change the configuration file and refresh the browser,
 
-the information is immediately refreshed from the updated file !
+the information is immediately refreshed from the updated file wihout restarting the nest app !

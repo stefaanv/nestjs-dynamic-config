@@ -1,5 +1,5 @@
 import { DynamicModule, Module } from '@nestjs/common'
-import { ConfigService, DYNAMIC_CONFIG_OPTIONS } from './config.service'
+import { ConfigService } from './config.service'
 import { DynamicConfigOptions } from './config.options.interface'
 import { FileLoadService } from './file-loader.service'
 
@@ -10,7 +10,7 @@ export class ConfigModule {
       module: ConfigModule,
       providers: [
         {
-          provide: DYNAMIC_CONFIG_OPTIONS,
+          provide: 'DYNAMIC_CONFIG_OPTIONS',
           useValue: options,
         },
         FileLoadService,
