@@ -1,6 +1,6 @@
 {
   "name": "@itanium.be/nestjs-dynamic-config",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "NestJS auto-reloading configuration provider",
   "author": "itanium development <development@itanium-software.eu>",
   "license": "MIT",
