@@ -3,7 +3,7 @@ import { DynamicConfigOptions } from '../config.options.interface'
 import { FakeContent, FileLoadService } from '../file-loader.service'
 import { LoggerService } from '@nestjs/common'
 
-describe('Substitution', () => {
+describe('Logging', () => {
   let options: DynamicConfigOptions
   let fakeContent: FakeContent
   let loader: FileLoadService

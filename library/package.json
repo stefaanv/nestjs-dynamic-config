@@ -38,6 +38,7 @@
   "dependencies": {
     "chokidar": "^3.5.3",
     "dotenv": "^16.3.1",
+    "joi": "^17.10.2",
     "radash": "^11.0.0"
   },
   "devDependencies": {

@@ -11,8 +11,8 @@ const NODE_ENV = process.env.NODE_ENV || 'development'
 
 export interface FakeContent {
   fake: true
-  envContent: string | undefined
-  pkgContent: string | undefined
+  envContent?: string
+  pkgContent?: string
   configContent: string | Error | undefined
   configFileType: ConfigFileTypes
 }

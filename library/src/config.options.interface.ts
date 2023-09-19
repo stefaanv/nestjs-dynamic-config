@@ -1,4 +1,5 @@
 import { LoggerService } from '@nestjs/common'
+import { Schema, ValidationError, ValidationOptions } from 'Joi'
 
 export interface DynamicConfigOptions {
   /** **Full** path to the (*.js or *.json) configuration file */
@@ -28,4 +29,17 @@ export interface DynamicConfigOptions {
    * severity
    */
   noLogOnReload?: boolean
+
+  /**
+   * Joi validation schema that will be used to validate the configuration object
+   * Set to `undefined` (default) not to use validation
+   */
+  validationSchema?: Schema
+
+  /**
+   * Callback function to return the validation result to the user code
+   * If set to `undefined` (default) then any validation errors will cause a fatal error
+   */
+  validationCallback?: (error: ValidationError) => {}
+  validationOptions?: ValidationOptions
 }

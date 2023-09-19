@@ -162,7 +162,25 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
         }
       }
 
-      return this._fileLoader.configFileType === 'js' ? eval(content) : JSON.parse(content)
+      let parsed = this._fileLoader.configFileType === 'js' ? eval(content) : JSON.parse(content)
+
+      if (this.options.validationSchema) {
+        const validationResult = this.options.validationSchema.validate(
+          parsed,
+          this.options.validationOptions,
+        )
+        if (validationResult.error) {
+          if (this.options.validationCallback) {
+            this.options.validationCallback(validationResult.error)
+          } else {
+            this.handleFatalError(validationResult.error)
+          }
+        } else {
+          parsed = validationResult.value
+        }
+      }
+
+      return parsed
     } catch (error) {
       this.handleFatalError(error)
     }

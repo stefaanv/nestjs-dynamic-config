@@ -2,7 +2,7 @@ import { ConfigService } from '../config.service'
 import { DynamicConfigOptions } from '../config.options.interface'
 import { FakeContent, FileLoadService } from '../file-loader.service'
 
-describe('Substitution', () => {
+describe('Variable substitution', () => {
   let options: DynamicConfigOptions
   let fakeContent: FakeContent
   let loader: FileLoadService
