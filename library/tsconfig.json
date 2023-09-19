@@ -14,7 +14,7 @@
   },
   "include": [
     "src/**/*.ts",
-    "src/config.service.basics.spec.ts"
+    "src/unit tests/config.service.basics.spec.ts"
   ],
   "exclude": [
     "node_modules"

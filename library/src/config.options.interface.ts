@@ -23,6 +23,4 @@ export interface DynamicConfigOptions {
    * severity
    */
   noLogOnReload?: boolean
-  /** */
-  resultTuples?: boolean
 }

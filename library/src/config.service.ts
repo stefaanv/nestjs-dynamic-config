@@ -86,8 +86,8 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     return () => this.get<T>(keys, defaultValue)
   }
 
-  public async forceReload() {
-    this.loadConfigFile(true)
+  public async forceReload(initial = true) {
+    this.loadConfigFile(initial)
   }
 
   private async loadConfigFile(initial = false) {
@@ -123,7 +123,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       this.options.onLoadErrorCallback(error)
     } else {
       this._logger?.fatal(error.message)
-      if (!this._fileLoader.isFake) process.exit(1)
+      this._fileLoader.exit(1)
     }
   }
 

@@ -21,6 +21,7 @@ export interface FakeContent {
 export class FileLoadService {
   private readonly _fakeContent: FakeContent | undefined
   private readonly _options: DynamicConfigOptions | undefined
+  public exit: (exitCode: number) => {} = process.exit
 
   constructor(
     @Inject(DYNAMIC_CONFIG_OPTIONS)
