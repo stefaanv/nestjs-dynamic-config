@@ -47,17 +47,17 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   }
 
   constructor(
-    @Inject(DYNAMIC_CONFIG_OPTIONS) private readonly options: DynamicConfigOptions,
+    @Inject(DYNAMIC_CONFIG_OPTIONS) private readonly _options: DynamicConfigOptions,
     private readonly _fileLoader: FileLoadService,
   ) {
     super()
-    this._logger = options.logger
+    this._logger = _options.logger
 
     // Initial load the config file and start the file watcher
     this.loadConfigFile(true)
 
     if (!this._fileLoader.isFake) {
-      this._watcher = watch(options.configFile).on('change', () => {
+      this._watcher = watch(_options.configFile).on('change', () => {
         this.loadConfigFile() //TODO! dit zal wrschnlk nog moeten veranderen
       })
     }
@@ -90,7 +90,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
 
   private async loadConfigFile(initial = false) {
     // load the .env file
-    this.loadEnvFile()
+    if (!this._options.ignoreEnvFile) this.loadEnvFile()
 
     // load the package.json file
     this.loadPkgFile()
@@ -108,7 +108,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
 
       if (!initial) {
         // reload messaging
-        if (!this.options.noLogOnReload) this._logger?.log(RELOADED_MSG)
+        if (!this._options.noLogOnReload) this._logger?.log(RELOADED_MSG)
         this.emit('reloaded')
       }
     } catch (error) {
@@ -117,8 +117,8 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   }
 
   private handleFatalError(error: Error) {
-    if (this.options.onLoadErrorCallback) {
-      this.options.onLoadErrorCallback(error)
+    if (this._options.onLoadErrorCallback) {
+      this._options.onLoadErrorCallback(error)
     } else {
       try {
         this._logger?.fatal(error.message)
@@ -143,7 +143,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
           const longKey = `{{ENV_${key}}}`
           const value = process.env[key]
           if (!value) {
-            this._logger?.debug(key + MISSING_ENV_VAR_MSG)
+            this.logDebug(key + MISSING_ENV_VAR_MSG)
           } else {
             content = content.replaceAll(longKey, value)
           }
@@ -155,7 +155,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
           const longKey = `{{pkg.${key}}}`
           const value = this._packageInfo[key]
           if (!value) {
-            this._logger?.debug(key + MISSING_PKG_INFO_MSG)
+            this.logDebug(key + MISSING_PKG_INFO_MSG)
           } else {
             content = content.replaceAll(longKey, value)
           }
@@ -164,14 +164,14 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
 
       let parsed = this._fileLoader.configFileType === 'js' ? eval(content) : JSON.parse(content)
 
-      if (this.options.validationSchema) {
-        const validationResult = this.options.validationSchema.validate(
+      if (this._options.validationSchema) {
+        const validationResult = this._options.validationSchema.validate(
           parsed,
-          this.options.validationOptions,
+          this._options.validationOptions,
         )
         if (validationResult.error) {
-          if (this.options.validationCallback) {
-            this.options.validationCallback(validationResult.error)
+          if (this._options.validationCallback) {
+            this._options.validationCallback(validationResult.error)
           } else {
             this.handleFatalError(validationResult.error)
           }
@@ -187,7 +187,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   }
 
   private loadPkgFile() {
-    const pkgContent = this._fileLoader.loadSupportFile('pkg')
+    const pkgContent = this._fileLoader.loadPkgFile()
     if (isEmpty(pkgContent)) {
       this._packageInfo = {}
       return
@@ -200,19 +200,20 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     } catch (err) {
       const msg = `Unable to parse package.json: ${ensureError(err).message}`
       this._packageInfo = {}
-      this._logger?.debug(msg)
+      this.logDebug(msg)
     }
   }
 
   private loadEnvFile() {
-    const envContent = this._fileLoader.loadSupportFile('env')
-    if (!envContent) return // stop execution, only global env-vars will be loaded
-    try {
-      const parsed = dotenv.parse(envContent)
-      dotenv.populate(process.env, parsed)
-    } catch (err) {
-      const msg = `Unable to parse the .env file: ${ensureError(err).message}`
-      this._logger?.debug(msg)
+    const envContents = this._fileLoader.loadEnvFiles()
+    if (envContents.length === 0) return // stop execution, only global env-vars will be loaded
+    for (const envContent of envContents) {
+      try {
+        const parsed = dotenv.parse(envContent)
+        dotenv.populate(process.env, parsed)
+      } catch (err) {
+        this.logDebug(`Unable to parse the .env file: ${err.message}`)
+      }
     }
   }
 
@@ -220,6 +221,12 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     if (!this._fileLoader.isFake) {
       this._watcher.unwatch('*')
       this._watcher.close()
+    }
+  }
+
+  logDebug(msg: string) {
+    if (this._options.debug && this._options.logger?.debug) {
+      this._options.logger.debug(msg)
     }
   }
 }

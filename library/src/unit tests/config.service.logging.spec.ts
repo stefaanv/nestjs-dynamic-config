@@ -63,6 +63,7 @@ describe('Logging', () => {
   it('substitution of unknown pkg key', async () => {
     options.logger = logger
     options.noLogOnReload = true
+    options.debug = true
     fakeContent.pkgContent = `{ "name": "test"}`
     fakeContent.configContent = `{ "s": "{{pkg.unknown}}", "n": 10, "b": true }`
     fakeContent.configFileType = `json`

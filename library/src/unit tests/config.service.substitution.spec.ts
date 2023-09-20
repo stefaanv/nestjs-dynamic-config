@@ -30,4 +30,10 @@ describe('Variable substitution', () => {
     expect(service.get('env')).toBe('VALUE')
     expect(service.get('appName')).toBe('app')
   })
+
+  it('ignoreEnvFile option', async () => {
+    options.ignoreEnvFile = true
+    service = new ConfigService(options, loader)
+    expect(service.get('env')).not.toBe('VALUE')
+  })
 })

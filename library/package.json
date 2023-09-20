@@ -1,7 +1,7 @@
 {
   "name": "@itanium.be/nestjs-dynamic-config",
   "version": "0.0.3",
-  "description": "NestJS auto-reloading configuration provider",
+  "description": "Hot-reloading drop-in replacement configuration provider for NestJS",
   "author": "itanium development <development@itanium-software.eu>",
   "license": "MIT",
   "readmeFilename": "../README.md",
@@ -38,6 +38,7 @@
     "@nestjs/common": "^6.0.0"
   },
   "dependencies": {
+    "app-root-path": "^3.1.0",
     "chokidar": "^3.5.3",
     "dotenv": "^16.3.1",
     "joi": "^17.10.2",

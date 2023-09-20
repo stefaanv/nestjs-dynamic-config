@@ -6,7 +6,6 @@ import { ConfigModule } from '@itanium.eu/nestjs-dynamic-config'
 @Module({
   imports: [
     ConfigModule.register({
-      rootFolder: __dirname,
       configFile: 'config.js',
     }),
   ],
