@@ -123,6 +123,8 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       try {
         this._logger?.fatal(error.message)
       } catch (e) {}
+      debugger
+      console.log(error)
       this._fileLoader.exit(1)
     }
   }
@@ -162,7 +164,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
         }
       }
 
-      let parsed = this._fileLoader.configFileType === 'js' ? eval(content) : JSON.parse(content)
+      let parsed = this._fileLoader.configFileType === 'js' ? eval(content)() : JSON.parse(content)
 
       if (this._options.validationSchema) {
         const validationResult = this._options.validationSchema.validate(

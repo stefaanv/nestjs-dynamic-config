@@ -21,7 +21,7 @@ describe('Logging', () => {
       fake: true,
       envContent: 'KEY=VALUE',
       pkgContent: `{ "name": "app", "author": "developer", "version": "1.2.30" }`,
-      configContent: `(() => ({s: 'string', n:10, b: true}))()`,
+      configContent: `exports.default = () => ({s: 'string', n:10, b: true})`,
       configFileType: 'js',
     }
     log = jest.fn()
