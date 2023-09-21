@@ -35,7 +35,7 @@ npm install -s  @itanium.eu/nestjs-dynamic-config
 @Module({
   imports: [
     ConfigModule.register({
-      rootFolder: join(__dirname, '..'),
+      rootFolder: path.resolve(__dirname, '..'),
       configFile: 'config.js',
     }),
   ],
