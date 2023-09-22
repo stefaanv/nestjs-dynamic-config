@@ -1,4 +1,4 @@
-import { ConfigService } from '@itanium.eu/nestjs-dynamic-config'
+import { ConfigService } from '@itanium.be/nestjs-dynamic-config'
 import { Injectable } from '@nestjs/common'
 
 interface DatabaseConfig {

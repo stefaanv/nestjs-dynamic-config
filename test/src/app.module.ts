@@ -1,6 +1,6 @@
 import { ConsoleLogger, Module } from '@nestjs/common'
 import { AppController } from './app.controller'
-import { ConfigModule } from '@itanium.eu/nestjs-dynamic-config'
+import { ConfigModule } from '@itanium.be/nestjs-dynamic-config'
 import namespacedConfig from '../config.namespaced.js'
 import { AppService } from './app.service'
 

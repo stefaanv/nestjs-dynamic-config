@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common'
-import { ConfigService } from '@itanium.eu/nestjs-dynamic-config'
+import { ConfigService } from '@itanium.be/nestjs-dynamic-config'
 
 @Controller()
 export class AppController {
