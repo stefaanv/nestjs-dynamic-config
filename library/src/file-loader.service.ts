@@ -5,10 +5,9 @@ import { DynamicConfigOptions } from './config.options.interface'
 import { first, isArray } from 'radash'
 import { ConfigFileTypes } from './config.service'
 import { ensureError } from './helpers'
-import { path as discoveredRootPath } from 'app-root-path'
+import { path as discoveredRootFolder } from 'app-root-path'
 
 const ENCODING = 'utf8'
-const NODE_ENV = process.env.NODE_ENV || 'development'
 
 export interface FakeContent {
   fake: true
@@ -22,12 +21,12 @@ export interface FakeContent {
 export class FileLoadService {
   private readonly _fakeContent: FakeContent | undefined
   private readonly _options: DynamicConfigOptions | undefined
-  private readonly _rootFolder: string = discoveredRootPath
+  private readonly _rootFolder: string = discoveredRootFolder
   public exit: (exitCode: number) => {} = process.exit
 
   constructor(
     @Inject('DYNAMIC_CONFIG_OPTIONS')
-    private readonly optionsOrFakeContent: DynamicConfigOptions | FakeContent,
+    optionsOrFakeContent: DynamicConfigOptions | FakeContent,
   ) {
     if ('fake' in optionsOrFakeContent) {
       this._fakeContent = optionsOrFakeContent
@@ -36,7 +35,12 @@ export class FileLoadService {
       const options = optionsOrFakeContent
       this._fakeContent = undefined
       this._options = options
-      this._rootFolder = options.rootFolder ? options.rootFolder : discoveredRootPath
+      this._rootFolder = options.rootFolder
+        ? options.rootFolder
+        : discoveredRootFolder.endsWith('library')
+        ? discoveredRootFolder.replace('library', 'test')
+        : discoveredRootFolder
+      this.logDebug(`rootfolder = "${this._rootFolder}"`)
     }
   }
 
@@ -48,15 +52,13 @@ export class FileLoadService {
         ? this._options.envFilePath
         : [this._options.envFilePath]
       : [`.${process.env.NODE_ENV}.env`, '.env']
-    const existingFiles = envFileNames
-      .map(fn => resolve(this._rootFolder, fn))
-      .filter(fp => existsSync(fp))
+    const existingFiles = envFileNames.filter(fn => existsSync(resolve(this._rootFolder, fn)))
     this.logDebug(`.env files ${existingFiles.join(', ')} found an parsed`)
     if (existingFiles.length === 0) {
       this.logDebug(`No .env file found in "${this._rootFolder}"`) // don't throw error, this could be intentional
       return [] // stop execution if no .env file was found
     }
-    return existingFiles.map(fp => readFileSync(fp, ENCODING))
+    return existingFiles.map(fn => readFileSync(resolve(this._rootFolder, fn), ENCODING))
   }
 
   loadPkgFile(): string | undefined {

@@ -15,3 +15,9 @@
 - Auto-discovery van het root path
 - Uitgebreide testapplicatie bouwen
 - Betekenis van alle config opties definieren
+
+# Alternatief voor eval
+```js
+console.log(require('../config.js').default())
+```
+Maar dan niet mogelijk om var substitutie te doen !

@@ -2,7 +2,7 @@ import { Inject, Injectable, LoggerService } from '@nestjs/common'
 import { watch, FSWatcher } from 'chokidar'
 import { DynamicConfigOptions } from './config.options.interface'
 import { TypedEventEmitter } from './TypedEventEmitter.class'
-import { crush, get, isEmpty } from 'radash'
+import { assign, crush, get, isEmpty } from 'radash'
 import { FileLoadService } from './file-loader.service'
 import { ensureError } from './helpers'
 import * as dotenv from 'dotenv'
@@ -23,6 +23,10 @@ const MISSING_ENV_VAR_MSG = ` is not a defined environment variable`
 const MISSING_PKG_INFO_MSG = ` is not defined in package.json`
 const UNSUPPORTED_FILE_TYPE_MSG =
   'Unsupported config file type - only .js and JSON files are supported'
+
+function registerAs(namespace: string, x: () => object) {
+  return { [namespace]: x() }
+}
 
 @Injectable()
 export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
@@ -165,6 +169,10 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       }
 
       let parsed = this._fileLoader.configFileType === 'js' ? eval(content)() : JSON.parse(content)
+      if (this._options.load)
+        for (const factory of this._options.load) {
+          assign(parsed, factory())
+        }
 
       if (this._options.validationSchema) {
         const validationResult = this._options.validationSchema.validate(
