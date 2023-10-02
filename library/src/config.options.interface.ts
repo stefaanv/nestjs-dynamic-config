@@ -3,7 +3,7 @@ import { Schema, ValidationError, ValidationOptions } from 'Joi'
 
 export interface DynamicConfigOptions {
   /** **Full** path to the (*.js or *.json) configuration file */
-  configFile: string
+  configFile?: string
 
   /** Absolute path to the root folder where the `.env` and `package.json` files reside */
   rootFolder?: string

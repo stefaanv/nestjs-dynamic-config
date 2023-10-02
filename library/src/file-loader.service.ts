@@ -13,7 +13,7 @@ export interface FakeContent {
   fake: true
   envContent?: string
   pkgContent?: string
-  configContent: string | Error | undefined
+  configContent?: string | Error
   configFileType: ConfigFileTypes
 }
 
@@ -94,9 +94,10 @@ export class FileLoadService {
   get configFileType(): ConfigFileTypes {
     if (this._fakeContent) return this._fakeContent.configFileType
     const path = this._options.configFile
-    const isJs = path.endsWith('.js')
-    const isJson = path.endsWith('.json')
-    return isJs ? 'js' : isJson ? 'json' : 'other'
+    if (!path) return 'none'
+    if (path.endsWith('.js')) return 'js'
+    if (path.endsWith('.json')) return 'json'
+    return 'other'
   }
 
   get isFake(): boolean {

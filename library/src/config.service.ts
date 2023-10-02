@@ -16,17 +16,17 @@ type LocalEventTypes = {
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-export type ConfigFileTypes = 'js' | 'json' | 'other'
+export type ConfigFileTypes = 'js' | 'json' | 'other' | 'none'
 
 const RELOADED_MSG = `Config file reloaded`
 const MISSING_ENV_VAR_MSG = ` is not a defined environment variable`
 const MISSING_PKG_INFO_MSG = ` is not defined in package.json`
 const UNSUPPORTED_FILE_TYPE_MSG =
   'Unsupported config file type - only .js and JSON files are supported'
+const FACTORY_WITHOUT_CONTENT =
+  'One of the factories you provided in the `load` option returned `undefined`'
 
-function registerAs(namespace: string, x: () => object) {
-  return { [namespace]: x() }
-}
+global.registerAs = (namespace: string, x: () => object) => ({ [namespace]: x() })
 
 @Injectable()
 export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
@@ -36,6 +36,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   private _packageInfo: Record<string, any> = {}
   private _appName = '<unknown>'
   private _version = '<unknown>'
+  private _configFileType: ConfigFileTypes
 
   get appName() {
     return this._appName
@@ -56,13 +57,14 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   ) {
     super()
     this._logger = _options.logger
+    this._configFileType = _fileLoader.configFileType
 
     // Initial load the config file and start the file watcher
     this.loadConfigFile(true)
 
-    if (!this._fileLoader.isFake) {
+    if (!this._fileLoader.isFake && ['js', 'json'].includes(this._configFileType)) {
       this._watcher = watch(_options.configFile).on('change', () => {
-        this.loadConfigFile() //TODO! dit zal wrschnlk nog moeten veranderen
+        this.loadConfigFile()
       })
     }
   }
@@ -100,7 +102,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     this.loadPkgFile()
 
     // load or reload the config file
-    if (this._fileLoader.configFileType === 'other') {
+    if (this._configFileType === 'other') {
       this.handleFatalError(new Error(UNSUPPORTED_FILE_TYPE_MSG))
       return
     }
@@ -108,7 +110,9 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       if (!initial && !this._fileLoader.isFake) {
         await sleep(WAIT_TIME_RELOAD)
       }
-      this._config = this.parseConfigFile()
+      const [validationErrors, config] = this.parseConfigProviders()
+      if (validationErrors) this.handleFatalError(validationErrors)
+      this._config = config
 
       if (!initial) {
         // reload messaging
@@ -127,73 +131,91 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       try {
         this._logger?.fatal(error.message)
       } catch (e) {}
-      debugger
-      console.log(error)
+      console.error(error)
       this._fileLoader.exit(1)
     }
   }
 
-  private parseConfigFile(): object {
-    let [error, content] = this._fileLoader.loadConfigFile()
-    if (error) {
-      // error while loading the config file, report this
-      this.handleFatalError(error)
-      return
-    }
-    try {
-      const envKeys = Array.from(content.matchAll(/{{ENV_(\w*)}}/g), a => a[1])
-      const pkgKeys = Array.from(content.matchAll(/{{pkg.(\w*)}}/g), a => a[1])
+  private substitute(content: string): string {
+    const envKeys = Array.from(content.matchAll(/{{ENV_(\w*)}}/g), a => a[1])
+    const pkgKeys = Array.from(content.matchAll(/{{pkg.(\w*)}}/g), a => a[1])
 
-      if (envKeys.length > 0) {
-        for (const key of envKeys) {
-          const longKey = `{{ENV_${key}}}`
-          const value = process.env[key]
-          if (!value) {
-            this.logDebug(key + MISSING_ENV_VAR_MSG)
-          } else {
-            content = content.replaceAll(longKey, value)
-          }
-        }
-      }
-
-      if (!isEmpty(this.packageInfo)) {
-        for (const key of pkgKeys) {
-          const longKey = `{{pkg.${key}}}`
-          const value = this._packageInfo[key]
-          if (!value) {
-            this.logDebug(key + MISSING_PKG_INFO_MSG)
-          } else {
-            content = content.replaceAll(longKey, value)
-          }
-        }
-      }
-
-      let parsed = this._fileLoader.configFileType === 'js' ? eval(content)() : JSON.parse(content)
-      if (this._options.load)
-        for (const factory of this._options.load) {
-          assign(parsed, factory())
-        }
-
-      if (this._options.validationSchema) {
-        const validationResult = this._options.validationSchema.validate(
-          parsed,
-          this._options.validationOptions,
-        )
-        if (validationResult.error) {
-          if (this._options.validationCallback) {
-            this._options.validationCallback(validationResult.error)
-          } else {
-            this.handleFatalError(validationResult.error)
-          }
+    if (envKeys.length > 0) {
+      for (const key of envKeys) {
+        const longKey = `{{ENV_${key}}}`
+        const value = process.env[key]
+        if (!value) {
+          this.logDebug(key + MISSING_ENV_VAR_MSG)
         } else {
-          parsed = validationResult.value
+          content = content.replaceAll(longKey, value)
         }
       }
-
-      return parsed
-    } catch (error) {
-      this.handleFatalError(error)
     }
+
+    if (!isEmpty(this.packageInfo)) {
+      for (const key of pkgKeys) {
+        const longKey = `{{pkg.${key}}}`
+        const value = this._packageInfo[key]
+        if (!value) {
+          this.logDebug(key + MISSING_PKG_INFO_MSG)
+        } else {
+          content = content.replaceAll(longKey, value)
+        }
+      }
+    }
+    return content
+  }
+
+  private parseConfigProviders(): [any, undefined] | [undefined, object] {
+    // load the content provided in `load` factories
+    let loadedContent: object | undefined = undefined
+    if (this._options.load) {
+      try {
+        loadedContent = JSON.parse(
+          this.substitute(
+            JSON.stringify(
+              this._options.load?.reduce((accu, factory) => {
+                const content = factory()
+                if (!content) throw new Error(FACTORY_WITHOUT_CONTENT)
+                return assign(accu, factory())
+              }, {}),
+            ),
+          ),
+        )
+      } catch (error) {
+        this.handleFatalError(error)
+      }
+    }
+
+    // load the content provided in a config file
+    let configFileContent: object | undefined = undefined
+    if (this._configFileType !== 'none') {
+      const [error, content] = this._fileLoader.loadConfigFile()
+      if (!error) {
+        const substd = this.substitute(content)
+        configFileContent = this._configFileType === 'js' ? eval(substd)() : JSON.parse(substd)
+      } else this.handleFatalError(error)
+    }
+
+    const content = assign(configFileContent ?? {}, loadedContent)
+
+    if (this._options.validationSchema) {
+      const validationResult = this._options.validationSchema.validate(
+        content,
+        this._options.validationOptions,
+      )
+      if (validationResult.error) {
+        if (this._options.validationCallback) {
+          this._options.validationCallback(validationResult.error)
+        } else {
+          this.handleFatalError(validationResult.error)
+        }
+      } else {
+        return [validationResult.value, undefined]
+      }
+    }
+
+    return [undefined, content]
   }
 
   private loadPkgFile() {

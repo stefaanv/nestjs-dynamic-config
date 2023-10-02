@@ -15,7 +15,8 @@
   "include": [
     "src/**/*.ts",
     "src/unit-tests/config.service.basics.spec.ts",
-    "src/unit-tests/config.service.substitution.spec.disabledts"
+    "src/unit-tests/config.service.substitution.spec.disabledts",
+    "src/unit-tests/config.service.validation.spec.ts.disabled"
   ],
   "exclude": ["node_modules"]
 }

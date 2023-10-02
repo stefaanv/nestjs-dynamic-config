@@ -11,11 +11,13 @@ export class AppService {
   constructor(private readonly _config: ConfigService) {}
 
   public getConfigCollection() {
+    console.log(this._config.config)
     return {
       basic: {
         database: this._config.get<DatabaseConfig>('database'),
         substitutedFromEnv: this._config.get('appName'),
-        substitutedFromPkj: this._config.get('version'),
+        substitutedFromPkg: this._config.get('version'),
+        namespacedAndLoaded: this._config.get<any>('namespaced'),
       },
     }
   }
