@@ -27,7 +27,8 @@ exports.default = () => ({
   app_name: '{{pkg.name}}',
 });
 ```
-**Remark**: In this case the configuration file is locationed in the project's root.  In real life you'll probably want your config file to be located in a specific folder that - when you're deploying in docker containers - you can link to the host filesystem
+
+**Remark**: In this case the configuration file is located in the project's root.  In real life you'll probably want your config file to be located in a specific folder that - when you're deploying in docker containers - you can link to the host filesystem
 
 ### Define the module in your project's app module
 
@@ -48,6 +49,7 @@ exports.default = () => ({
 })
 export class AppModule {}
 ```
+The configuration file location is resolved relative to the project root.  You can add path information to the configFile option.  
 There's plenty more options that can be passed next to the `configFile`, most of the options work the same like in the original [@nestjs/config](https://docs.nestjs.com/techniques/configuration) module to provide drop-in compatibility.
 
 ### Use the configuration module in your code
@@ -122,11 +124,44 @@ This module will try it's best to collect all the needed information.  A.o. it w
   logger: new ConsoleLogger(),
 }
 ```
-> Hint: the `Consolelogger` can be imported from `'@nestjs/common'`
+> Hint: `Consolelogger` is imported from `'@nestjs/common'`
 
 ### Validation
 A [Joi](https://joi.dev/api) validation object can be passed to sanitize the configuration.  The options object provides there properties
 
 - `validationSchema` Joi object
 - `validationOptions` validation options
--
+- `validationCallback` function to be called in case of validation errors
+
+Add this code to your `app.module.ts`
+
+```ts
+const validationSchema = Joi.object({
+  other: Joi.string().default('my other string'),
+});
+
+@Module({
+  imports: [
+    ConfigModule.register({
+      ...
+      validationSchema,
+      validationOptions: { allowUnknown: true },
+      validationCallback: (error: Joi.ValidationError) => console.log(error),
+    })],
+...
+})
+```
+
+> Hint: `Joi` is imported from the `'Joi'` module
+
+Restart the Nestjs app and reload the browser.  `"other": "my other string"` will be in the displayed configuration even though it 's not in the configuration file.  That's because it is defined in the validation schema with a default value.
+If you comment out the line where the `validationOptions` is defined, an error message will be printed because the configuration file contains elements that are not defined in the validationSchema.
+If you also comment out the line where the `validationCallback` is defined, the program will deliberately crash because it's configuration is not valid.
+
+### Crashing your program
+This module will purposefully crash your program when the configuration file is not found, when it is not a `*.js` or `*.json` file or when validation fails.  This is considered the best option because having your program run with missing or invalid configuration will usually be the worse option.
+
+To prevent this, you can
+
+- set `validationCallback` when you use validation - the validation errors will be sent to the callback instead of printed to the screen (and crashing the program)
+- set

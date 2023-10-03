@@ -112,7 +112,7 @@ export class FileLoadService {
         return [new Error(`Unable to load config file`), undefined]
       }
     }
-    const file = this._options.configFile
+    const file = resolve(this._rootFolder, this._options.configFile)
     try {
       return [undefined, readFileSync(file, ENCODING)]
     } catch (error) {
