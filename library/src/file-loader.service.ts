@@ -24,7 +24,7 @@ export class FileLoadService {
   private readonly _options: DynamicConfigOptions | undefined
   private readonly _rootFolder: string = discoveredRootFolder
   private _printErrorOnExit = true
-  private _exitter: ExitFunction
+  private _exitter: ExitFunction = process.exit
 
   constructor(
     @Inject('DYNAMIC_CONFIG_OPTIONS')

@@ -16,14 +16,14 @@ create a [new Nestjs app](https://docs.nestjs.com/first-steps)
 
 ```js
 // <project root>/config/config.js
-(() => ({
+exports.default = () => ({
   name: "some-name",
   length: 100,
   database: {
     host: "myHost",
     user: "root",
   },
-}))();
+});
 ```
 > Remark:
 
