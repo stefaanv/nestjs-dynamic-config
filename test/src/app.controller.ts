@@ -7,6 +7,7 @@ export class AppController {
 
   constructor(private readonly config: ConfigService) {
     this.nameProxy = config.createProxy('name')
+    config.on('reloaded', () => console.log(`The configuration changed`))
   }
 
   @Get('name')
