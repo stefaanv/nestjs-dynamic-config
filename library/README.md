@@ -10,12 +10,12 @@ npm install -s  @itanium.be/nestjs-dynamic-config
 
 ## Usage
 
-- create a [new Nestjs app](https://docs.nestjs.com/first-steps)
+create a [new Nestjs app](https://docs.nestjs.com/first-steps)
 
-- create a `.js` or `.json` configuration file (here in the root folder of the project)
+### create a `.js` or `.json` configuration file
 
 ```js
-// <project root>/config.js
+// <project root>/config/config.js
 (() => ({
   name: "some-name",
   length: 100,
@@ -25,15 +25,15 @@ npm install -s  @itanium.be/nestjs-dynamic-config
   },
 }))();
 ```
+> Remark:
 
-- define the module in your project's app module
+### define the module in your project's app module
 
 ```ts
 @Global()
 @Module({
   imports: [
     ConfigModule.register({
-      rootFolder: path.resolve(__dirname, ".."),
       configFile: "config.js",
     }),
   ],
