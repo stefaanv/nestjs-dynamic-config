@@ -3,7 +3,7 @@ import { Schema, ValidationError, ValidationOptions } from 'Joi'
 
 export interface DynamicConfigOptions {
   /** **Full** path to the (*.js or *.json) configuration file */
-  configFile: string
+  configFile?: string
 
   /** Absolute path to the root folder where the `.env` and `package.json` files reside */
   rootFolder?: string
@@ -42,4 +42,27 @@ export interface DynamicConfigOptions {
    */
   validationCallback?: (error: ValidationError) => {}
   validationOptions?: ValidationOptions
+
+  /**
+   * Option to override the .env file paths.
+   * Defaults to [`.${process.env.NODE_ENV}.env`,'.env']
+   */
+  envFilePath?: string | string[]
+
+  /**
+   * Set this option to true if you don't want to load the .env file, but instead would like
+   * to simply access environment variables from the runtime environment
+   */
+  ignoreEnvFile?: boolean
+
+  /**
+   * When set to true, the ConfigService only needs to be imported in the root module
+   */
+  isGlobal?: boolean //TODO!
+
+  /**
+   * Array of factory functions the return configuration objects
+   * Can be combined with the `configFile` options - in which case the objects are merged
+   */
+  load?: Array<() => object>
 }

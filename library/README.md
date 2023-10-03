@@ -5,27 +5,25 @@ Dynamic configuration module for [Nest](https://github.com/nestjs/nest) with aut
 ## Install
 
 ```bash
-npm install -s  @itanium.eu/nestjs-dynamic-config
+npm install -s  @itanium.be/nestjs-dynamic-config
 ```
 
 ## Usage
 
-- create a [new Nestjs app](<https://docs.nestjs.com/first-steps>)
+- create a [new Nestjs app](https://docs.nestjs.com/first-steps)
 
 - create a `.js` or `.json` configuration file (here in the root folder of the project)
 
 ```js
 // <project root>/config.js
-(
-  () => ({
-    name: 'some-name', 
-    length: 100,
-    database: {
-      host: 'myHost',
-      user: 'root'
-    }
-  })
-)()
+(() => ({
+  name: "some-name",
+  length: 100,
+  database: {
+    host: "myHost",
+    user: "root",
+  },
+}))();
 ```
 
 - define the module in your project's app module
@@ -35,38 +33,44 @@ npm install -s  @itanium.eu/nestjs-dynamic-config
 @Module({
   imports: [
     ConfigModule.register({
-      rootFolder: path.resolve(__dirname, '..'),
-      configFile: 'config.js',
+      rootFolder: path.resolve(__dirname, ".."),
+      configFile: "config.js",
     }),
   ],
-  controllers: [/* your controllers */],
-  providers: [ /* your providers */ ],
+  controllers: [
+    /* your controllers */
+  ],
+  providers: [
+    /* your providers */
+  ],
 })
 export class AppModule {}
 ```
 
 Use the configuration module in your code
+
 ```ts
 @Controller()
 export class AppController {
-  private readonly nameProxy: () => string
+  private readonly nameProxy: () => string;
 
   constructor(private readonly config: ConfigService) {
-    this.nameProxy = config.createProxy('name')
+    this.nameProxy = config.createProxy("name");
   }
 
-  @Get('name')
+  @Get("name")
   getName() {
-    return this.nameProxy()
+    return this.nameProxy();
   }
 
-  @Get('db')
+  @Get("db")
   getDb() {
-    return this.config.get('database')
+    return this.config.get("database");
   }
 }
 ```
-Run your app and call the API endpoints using your favorite  browser.
+
+Run your app and call the API endpoints using your favorite browser.
 
 Change the configuration file and refresh the browser,
 

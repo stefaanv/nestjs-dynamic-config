@@ -1,19 +1,19 @@
-import { Inject, Injectable, LoggerService } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { existsSync, readFileSync } from 'fs'
 import { resolve } from 'path'
 import { DynamicConfigOptions } from './config.options.interface'
-import { first } from 'radash'
-import { ConfigFileTypes, DYNAMIC_CONFIG_OPTIONS } from './config.service'
+import { first, isArray } from 'radash'
+import { ConfigFileTypes } from './config.service'
 import { ensureError } from './helpers'
+import { path as discoveredRootFolder } from 'app-root-path'
 
 const ENCODING = 'utf8'
-const NODE_ENV = process.env.NODE_ENV || 'development'
 
 export interface FakeContent {
   fake: true
   envContent?: string
   pkgContent?: string
-  configContent: string | Error | undefined
+  configContent?: string | Error
   configFileType: ConfigFileTypes
 }
 
@@ -21,41 +21,55 @@ export interface FakeContent {
 export class FileLoadService {
   private readonly _fakeContent: FakeContent | undefined
   private readonly _options: DynamicConfigOptions | undefined
+  private readonly _rootFolder: string = discoveredRootFolder
   public exit: (exitCode: number) => {} = process.exit
 
   constructor(
     @Inject('DYNAMIC_CONFIG_OPTIONS')
-    private readonly optionsOrFakeContent: DynamicConfigOptions | FakeContent,
+    optionsOrFakeContent: DynamicConfigOptions | FakeContent,
   ) {
     if ('fake' in optionsOrFakeContent) {
       this._fakeContent = optionsOrFakeContent
       this._options = undefined
     } else {
+      const options = optionsOrFakeContent
       this._fakeContent = undefined
-      this._options = optionsOrFakeContent
+      this._options = options
+      this._rootFolder = options.rootFolder
+        ? options.rootFolder
+        : discoveredRootFolder.endsWith('library')
+        ? discoveredRootFolder.replace('library', 'test')
+        : discoveredRootFolder
+      this.logDebug(`rootfolder = "${this._rootFolder}"`)
     }
   }
 
-  loadSupportFile(file: 'pkg' | 'env'): string | undefined {
-    if (this._fakeContent) {
-      return this._fakeContent[file === 'pkg' ? 'pkgContent' : 'envContent']
+  loadEnvFiles(): string[] {
+    if (this._fakeContent) return [this._fakeContent.envContent]
+
+    const envFileNames = this._options.envFilePath
+      ? isArray(this._options.envFilePath)
+        ? this._options.envFilePath
+        : [this._options.envFilePath]
+      : [`.${process.env.NODE_ENV}.env`, '.env']
+    const existingFiles = envFileNames.filter(fn => existsSync(resolve(this._rootFolder, fn)))
+    this.logDebug(`.env files ${existingFiles.join(', ')} found an parsed`)
+    if (existingFiles.length === 0) {
+      this.logDebug(`No .env file found in "${this._rootFolder}"`) // don't throw error, this could be intentional
+      return [] // stop execution if no .env file was found
     }
-    const rootFolder = this._options.rootFolder
-    if (!rootFolder) {
-      const msg = `No rootfolder provided, .env and package.json files will not be parsed`
-      this.logDebug(msg) // don't throw error, this could be intentional
-      return undefined // stop execution if no rootfolder was provided
+    return existingFiles.map(fn => readFileSync(resolve(this._rootFolder, fn), ENCODING))
+  }
+
+  loadPkgFile(): string | undefined {
+    if (this._fakeContent) return this._fakeContent.pkgContent
+
+    const fullPath = resolve(this._rootFolder, 'package.json')
+    if (!existsSync(fullPath)) {
+      this.logDebug(`No "package.json" file found in "${this._rootFolder}"`) // don't throw error, this could be intentional
+      return undefined // stop execution if no package file was found
     }
-    const paths =
-      file === 'pkg'
-        ? ['package.json', '../package.json']
-        : [`${NODE_ENV}.env`, '.env', `../${NODE_ENV}.env`, '../.env']
-    const fullPath = this.getFirstExisting(rootFolder, paths)
-    if (!fullPath) {
-      const fileName = file === 'env' ? '.env' : 'package.json'
-      this.logDebug(`No valid ${fileName} file found in "${rootFolder}"`) // don't throw error, this could be intentional
-      return undefined // stop execution if no .env file was found
-    }
+    this.logDebug(`"package.json" file found and parsed`) // don't throw error, this could be intentional
     return readFileSync(fullPath, ENCODING)
   }
 
@@ -80,9 +94,10 @@ export class FileLoadService {
   get configFileType(): ConfigFileTypes {
     if (this._fakeContent) return this._fakeContent.configFileType
     const path = this._options.configFile
-    const isJs = path.endsWith('.js')
-    const isJson = path.endsWith('.json')
-    return isJs ? 'js' : isJson ? 'json' : 'other'
+    if (!path) return 'none'
+    if (path.endsWith('.js')) return 'js'
+    if (path.endsWith('.json')) return 'json'
+    return 'other'
   }
 
   get isFake(): boolean {

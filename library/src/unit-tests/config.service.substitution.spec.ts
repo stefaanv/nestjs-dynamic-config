@@ -15,7 +15,7 @@ describe('Variable substitution', () => {
       fake: true,
       envContent: 'KEY=VALUE',
       pkgContent: `{ "name": "app", "author": "developer", "version": "1.2.30" }`,
-      configContent: `(() => ({env: '{{ENV_KEY}}', appName:'{{pkg.name}}'}))()`,
+      configContent: `exports.default = () => ({env: '{{ENV_KEY}}', appName:'{{pkg.name}}'})`,
       configFileType: 'js',
     }
     loader = new FileLoadService(fakeContent)
@@ -29,5 +29,11 @@ describe('Variable substitution', () => {
     service = new ConfigService(options, loader)
     expect(service.get('env')).toBe('VALUE')
     expect(service.get('appName')).toBe('app')
+  })
+
+  it('ignoreEnvFile option', async () => {
+    options.ignoreEnvFile = true
+    service = new ConfigService(options, loader)
+    expect(service.get('env')).not.toBe('VALUE')
   })
 })

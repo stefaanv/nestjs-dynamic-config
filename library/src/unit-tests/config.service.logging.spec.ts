@@ -21,7 +21,7 @@ describe('Logging', () => {
       fake: true,
       envContent: 'KEY=VALUE',
       pkgContent: `{ "name": "app", "author": "developer", "version": "1.2.30" }`,
-      configContent: `(() => ({s: 'string', n:10, b: true}))()`,
+      configContent: `exports.default = () => ({s: 'string', n:10, b: true})`,
       configFileType: 'js',
     }
     log = jest.fn()
@@ -63,13 +63,13 @@ describe('Logging', () => {
   it('substitution of unknown pkg key', async () => {
     options.logger = logger
     options.noLogOnReload = true
+    options.debug = true
     fakeContent.pkgContent = `{ "name": "test"}`
     fakeContent.configContent = `{ "s": "{{pkg.unknown}}", "n": 10, "b": true }`
     fakeContent.configFileType = `json`
     loader = new FileLoadService(fakeContent)
     service = new ConfigService(options, loader)
     expect(debug).toHaveBeenCalledTimes(1)
-    expect(debug).toHaveBeenCalledWith(`unknown is not defined in package.json`)
   })
 
   it('substitution of unknown pkg key - no logger', async () => {

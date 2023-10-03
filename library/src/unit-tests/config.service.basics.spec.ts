@@ -15,7 +15,7 @@ describe('Basics', () => {
       fake: true,
       envContent: 'KEY=VALUE',
       pkgContent: `{ "name": "app", "author": "developer", "version": "1.2.30" }`,
-      configContent: `(() => ({ps: 'string', pn:10, pb: true}))()`,
+      configContent: `exports.default = () => ({ps: 'string', pn:10, pb: true})`,
       configFileType: 'js',
     }
     loader = new FileLoadService(fakeContent)
@@ -78,7 +78,7 @@ describe('Basics', () => {
   })
 
   it('Basic config with multiple levels', async () => {
-    fakeContent.configContent = `(() => ({l1:{l2:{l3:'L3'}, l2b:'L2B'}}))()`
+    fakeContent.configContent = `exports.default = () => ({l1:{l2:{l3:'L3'}, l2b:'L2B'}})`
     fakeContent.configFileType = 'js'
     service = new ConfigService(options, loader)
     expect(service.get<string>('l1.l2b')).toBe('L2B')

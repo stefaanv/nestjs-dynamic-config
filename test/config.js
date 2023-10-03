@@ -1,5 +1,6 @@
-;(() => ({
-  name: 'some-name3',
+exports.default = () => ({
+  appName: '{{ENV_APP_NAME}}',
+  version: '{{pkg.version}}',
   length: 100,
   database: {
     host: '{{ENV_DATABASE_HOST}}',
@@ -11,4 +12,4 @@
   appName: '{{pkg.name}}',
   author: '{{pkg.author}}',
   version: '{{pkg.version}}',
-}))()
+})

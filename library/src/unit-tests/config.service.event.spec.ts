@@ -15,7 +15,7 @@ describe('Reload events', () => {
       fake: true,
       envContent: 'KEY=VALUE',
       pkgContent: `{ "name": "app", "author": "developer", "version": "1.2.30" }`,
-      configContent: `(() => ({s: 'string', n:100}))()`,
+      configContent: `exports.default = () => ({s: 'string', n:100})`,
       configFileType: 'js',
     }
     loader = new FileLoadService(fakeContent)
@@ -40,7 +40,7 @@ describe('Reload events', () => {
     expect(service.get<number>('n')).toBe(100)
     expect(proxy()).toBe(100)
     // prepare reload
-    fakeContent.configContent = `(() => ({s: 'test', n:36}))()`
+    fakeContent.configContent = `exports.default = () => ({s: 'test', n:36})`
     const reloaded = jest.fn()
     service.on('reloaded', reloaded)
     service.forceReload(false)

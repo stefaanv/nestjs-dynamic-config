@@ -15,7 +15,7 @@ describe('Error handling', () => {
       fake: true,
       envContent: 'KEY=VALUE',
       pkgContent: `{ "name": "app", "author": "developer", "version": "1.2.30" }`,
-      configContent: `(() => ({env: '{{ENV_KEY}}', appName:'{{pkg.name}}'}))()`,
+      configContent: `exports.default = () => ({env: '{{ENV_KEY}}', appName:'{{pkg.name}}'})`,
       configFileType: 'js',
     }
     loader = new FileLoadService(fakeContent)
