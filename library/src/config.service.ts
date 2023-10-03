@@ -16,8 +16,6 @@ type LocalEventTypes = {
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-export type ConfigFileTypes = 'js' | 'json' | 'other' | 'none'
-
 const RELOADED_MSG = `Config file reloaded`
 const MISSING_ENV_VAR_MSG = ` is not a defined environment variable`
 const MISSING_PKG_INFO_MSG = ` is not defined in package.json`
@@ -36,7 +34,6 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   private _packageInfo: Record<string, any> = {}
   private _appName = '<unknown>'
   private _version = '<unknown>'
-  private _configFileType: ConfigFileTypes
 
   get appName() {
     return this._appName
@@ -57,14 +54,13 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   ) {
     super()
     this._logger = _options.logger
-    this._configFileType = _fileLoader.configFileType
 
     // Initial load the config file and start the file watcher
-    this.loadConfigFile(true)
+    this.loadAllConfiguration(true)
 
-    if (!this._fileLoader.isFake && ['js', 'json'].includes(this._configFileType)) {
+    if (this._fileLoader.configFileHasAcceptableType) {
       this._watcher = watch(_options.configFile).on('change', () => {
-        this.loadConfigFile()
+        this.loadAllConfiguration()
       })
     }
   }
@@ -91,10 +87,22 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   }
 
   public async forceReload(initial = true) {
-    this.loadConfigFile(initial)
+    this.loadAllConfiguration(initial)
   }
 
-  private async loadConfigFile(initial = false) {
+  /**
+   * loads in order
+   * - one or more .env files
+   * - package.json
+   * - All configuration providers (config file PLUS options.load factories)
+   *
+   * emit 'reloaded' event if configured
+   * handle errors
+   *
+   * @param initial set to true ONLY if this is the initial load
+   * @returns void, the configuration is stored in this._config
+   */
+  private async loadAllConfiguration(initial = false) {
     // load the .env file
     if (!this._options.ignoreEnvFile) this.loadEnvFile()
 
@@ -102,7 +110,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     this.loadPkgFile()
 
     // load or reload the config file
-    if (this._configFileType === 'other') {
+    if (this._fileLoader.configFileType === 'other') {
       this.handleFatalError(new Error(UNSUPPORTED_FILE_TYPE_MSG))
       return
     }
@@ -110,12 +118,11 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       if (!initial && !this._fileLoader.isFake) {
         await sleep(WAIT_TIME_RELOAD)
       }
-      const [validationErrors, config] = this.parseConfigProviders()
-      if (validationErrors) this.handleFatalError(validationErrors)
-      this._config = config
+      // this.parseAllConfigProviders() handles errors locally !
+      this._config = this.parseAllConfigProviders()
 
       if (!initial) {
-        // reload messaging
+        // send reload message if so configured
         if (!this._options.noLogOnReload) this._logger?.log(RELOADED_MSG)
         this.emit('reloaded')
       }
@@ -124,6 +131,10 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
     }
   }
 
+  /**
+   * calls this._options.onLoadErrorCallback() if defined
+   * exits the program with error message otherwise
+   */
   private handleFatalError(error: Error) {
     if (this._options.onLoadErrorCallback) {
       this._options.onLoadErrorCallback(error)
@@ -131,11 +142,14 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       try {
         this._logger?.fatal(error.message)
       } catch (e) {}
-      console.error(error)
-      this._fileLoader.exit(1)
+      this._fileLoader.exit(error)
     }
   }
 
+  /**
+   * substitutes `package.json`, `.env.*` and environment variables in string content
+   * @returns the same string with variables substituted where nessary
+   */
   private substitute(content: string): string {
     const envKeys = Array.from(content.matchAll(/{{ENV_(\w*)}}/g), a => a[1])
     const pkgKeys = Array.from(content.matchAll(/{{pkg.(\w*)}}/g), a => a[1])
@@ -144,11 +158,8 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       for (const key of envKeys) {
         const longKey = `{{ENV_${key}}}`
         const value = process.env[key]
-        if (!value) {
-          this.logDebug(key + MISSING_ENV_VAR_MSG)
-        } else {
-          content = content.replaceAll(longKey, value)
-        }
+        if (!value) this.logDebug(key + MISSING_ENV_VAR_MSG)
+        else content = content.replaceAll(longKey, value)
       }
     }
 
@@ -156,18 +167,24 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       for (const key of pkgKeys) {
         const longKey = `{{pkg.${key}}}`
         const value = this._packageInfo[key]
-        if (!value) {
-          this.logDebug(key + MISSING_PKG_INFO_MSG)
-        } else {
-          content = content.replaceAll(longKey, value)
-        }
+        if (!value) this.logDebug(key + MISSING_PKG_INFO_MSG)
+        else content = content.replaceAll(longKey, value)
       }
     }
     return content
   }
 
-  private parseConfigProviders(): [any, undefined] | [undefined, object] {
-    // load the content provided in `load` factories
+  /**
+   * parses all configuration providers in this order
+   * - options.load factories
+   * - configuration file
+   * validates the content (if validation is provided in the options)
+   *
+   * Handles errors locally
+   * @returns object with parsed content
+   */
+  private parseAllConfigProviders(): object {
+    // load the content from `options.load` factories
     let loadedContent: object | undefined = undefined
     if (this._options.load) {
       try {
@@ -187,17 +204,20 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
       }
     }
 
-    // load the content provided in a config file
-    let configFileContent: object | undefined = undefined
-    if (this._configFileType !== 'none') {
+    // load the content provided in the configuration file
+    let configFileContent: object = {}
+    if (this._fileLoader.configFileType !== 'none') {
       const [error, content] = this._fileLoader.loadConfigFile()
       if (!error) {
         const substd = this.substitute(content)
-        configFileContent = this._configFileType === 'js' ? eval(substd)() : JSON.parse(substd)
-      } else this.handleFatalError(error)
+        configFileContent =
+          this._fileLoader.configFileType === 'js' ? eval(substd)() : JSON.parse(substd)
+      } else {
+        this.handleFatalError(error)
+      }
     }
 
-    const content = assign(configFileContent ?? {}, loadedContent)
+    const content = assign(configFileContent, loadedContent)
 
     if (this._options.validationSchema) {
       const validationResult = this._options.validationSchema.validate(
@@ -211,11 +231,11 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
           this.handleFatalError(validationResult.error)
         }
       } else {
-        return [validationResult.value, undefined]
+        return validationResult.value
       }
     }
 
-    return [undefined, content]
+    return content
   }
 
   private loadPkgFile() {

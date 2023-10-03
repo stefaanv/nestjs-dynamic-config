@@ -29,7 +29,7 @@ describe('Error handling', () => {
     fakeContent.configFileType = 'other'
     loader = new FileLoadService(fakeContent)
     const exit = jest.fn()
-    loader.exit = exit
+    loader.exitter = exit
     service = new ConfigService(options, loader)
     expect(exit).toHaveBeenCalled()
   })
@@ -38,7 +38,7 @@ describe('Error handling', () => {
     fakeContent.configFileType = 'other'
     loader = new FileLoadService(fakeContent)
     const exit = jest.fn()
-    loader.exit = exit
+    loader.exitter = exit
     const cb = jest.fn()
     options.onLoadErrorCallback = cb
     service = new ConfigService(options, loader)
@@ -51,7 +51,7 @@ describe('Error handling', () => {
     fakeContent.configContent = 'blabla'
     loader = new FileLoadService(fakeContent)
     const exit = jest.fn()
-    loader.exit = exit
+    loader.exitter = exit
     service = new ConfigService(options, loader)
     expect(exit).toHaveBeenCalled()
   })
@@ -61,7 +61,7 @@ describe('Error handling', () => {
     fakeContent.configContent = 'blabla'
     loader = new FileLoadService(fakeContent)
     const exit = jest.fn()
-    loader.exit = exit
+    loader.exitter = exit
     const cb = jest.fn()
     options.onLoadErrorCallback = cb
     service = new ConfigService(options, loader)

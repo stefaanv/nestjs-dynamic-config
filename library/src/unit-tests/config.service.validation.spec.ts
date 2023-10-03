@@ -20,6 +20,7 @@ describe('Validation', () => {
       configFileType: 'json',
     }
     loader = new FileLoadService(fakeContent)
+    loader.exitter = () => {}
   })
 
   afterEach(() => {
@@ -56,13 +57,13 @@ describe('Validation', () => {
     expect(error.message).toBe(`"test" must be one of [a, b, c]`)
   })
 
-  it('validation failure without callback crahses the program', async () => {
+  it('validation failure without callback crashes the program', async () => {
     options.validationSchema = Joi.object({
       test: Joi.string().valid('a', 'b', 'c').default('a'),
     })
     options.validationCallback = undefined
     const exit = jest.fn()
-    loader.exit = exit
+    loader.exitter = exit
     service = new ConfigService(options, loader)
     expect(exit).toBeCalled()
   })
