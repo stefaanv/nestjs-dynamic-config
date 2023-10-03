@@ -1,4 +1,4 @@
-import { Inject, Injectable, LoggerService } from '@nestjs/common'
+import { ConsoleLogger, Inject, Injectable, LoggerService } from '@nestjs/common'
 import { watch, FSWatcher } from 'chokidar'
 import { DynamicConfigOptions } from './config.options.interface'
 import { TypedEventEmitter } from './TypedEventEmitter.class'
@@ -34,6 +34,7 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   private _packageInfo: Record<string, any> = {}
   private _appName = '<unknown>'
   private _version = '<unknown>'
+  private _consoleLogger = new ConsoleLogger()
 
   get appName() {
     return this._appName
@@ -277,8 +278,12 @@ export class ConfigService extends TypedEventEmitter<LocalEventTypes> {
   }
 
   logDebug(msg: string) {
-    if (this._options.debug && this._options.logger?.debug) {
-      this._options.logger.debug(msg)
+    if (this._options.debug) {
+      if (this._options.logger?.debug) {
+        this._options.logger.debug(msg)
+      } else {
+        this._consoleLogger.debug(msg)
+      }
     }
   }
 }

@@ -106,7 +106,27 @@ The `configService.get(configElementName)` can also be used to extract configura
   config.get<string>(['database', 'host']);
 ```
 
-#### Variable substitution
+### Variable substitution
 
 Configuration elements defined as `{{ENV_xxx}}` or `{{pkg.xxx}}` will be substituted either from environment variables or content from the `package.json` file.
 For instance, `{{ENV_NODE_ENV}}` will be substituted with the content of `process.env.NODE_ENV`, `{{pkg.version}}` will be substituted with the package version.
+`.env` file are loaded with the help of the [dotenv package](https://www.npmjs.com/package/dotenv).  All the usual naming rules apply to the filename.  Multiple files can be loaded.
+
+### Debugging
+This module will try it's best to collect all the needed information.  A.o. it will make a educated guess about where the root folder of your project is located and what `.env` files there are.  This can fail depending on your project setup.  When you experience problems, activate debugging by adding the below options in the `.register()` function
+
+```ts
+{
+  ...
+  debug: true,
+  logger: new ConsoleLogger(),
+}
+```
+> Hint: the `Consolelogger` can be imported from `'@nestjs/common'`
+
+### Validation
+A [Joi](https://joi.dev/api) validation object can be passed to sanitize the configuration.  The options object provides there properties
+
+- `validationSchema` Joi object
+- `validationOptions` validation options
+-

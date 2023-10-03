@@ -40,7 +40,7 @@ export interface DynamicConfigOptions {
    * Callback function to return the validation result to the user code
    * If set to `undefined` (default) then any validation errors will cause a fatal error
    */
-  validationCallback?: (error: ValidationError) => {}
+  validationCallback?: (error: ValidationError) => void
   validationOptions?: ValidationOptions
 
   /**
