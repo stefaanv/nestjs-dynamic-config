@@ -96,7 +96,7 @@ This code demonstrates
 #### Proxies
 
 The `this.nameProxy` is a proxy to the "name" *configuration element* created in the constructor.  When you change the name attribute in the config file and refresh your browser, you'll notice that the change is immediately reflected whithout restarting the nest app.  Because the `this.nameProxy` method is a function, it will always have the latest value from the configuration file when called as `this.nameProxy()`.
-A proxy is create with `config.createProxy(configElementName)`
+A proxy is create with `config.createProxy(configElementName)`.  A second `default` argument can be passed to `createProxy`.  When the configuration element is not found and a default value was defined then the default value will be returned from the proxy
 
 #### .get&lt;T&gt;() function
 
@@ -164,4 +164,4 @@ This module will purposefully crash your program when the configuration file is 
 To prevent this, you can
 
 - set `validationCallback` when you use validation - the validation errors will be sent to the callback instead of printed to the screen (and crashing the program)
-- set
+- set `onLoadErrorCallback` - this callback will be called with the error thrown when attempting to load the configuration file and the program will not crash.
