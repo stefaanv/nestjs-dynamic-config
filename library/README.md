@@ -1,6 +1,6 @@
 # nestjs-dynamic-config
 
-Dynamic configuration module for [Nest](https://github.com/nestjs/nest) with automatic reload on file update and environment variable substitution
+Drop-in dynamic configuration module for [Nest](https://github.com/nestjs/nest) with automatic reload on file update and environment variable substitution
 
 ## Install
 
@@ -12,10 +12,10 @@ npm install -s  @itanium.be/nestjs-dynamic-config
 
 create a [new Nestjs app](https://docs.nestjs.com/first-steps)
 
-### create a `.js` or `.json` configuration file
+### Create a `.js` or `.json` configuration file
 
 ```js
-// <project root>/config/config.js
+// <project root>/config.js
 exports.default = () => ({
   name: "some-name",
   length: 100,
@@ -23,11 +23,13 @@ exports.default = () => ({
     host: "myHost",
     user: "root",
   },
+  environment: '{{ENV_NODE_ENV}}',
+  app_name: '{{pkg.name}}',
 });
 ```
-> Remark:
+**Remark**: In this case the configuration file is locationed in the project's root.  In real life you'll probably want your config file to be located in a specific folder that - when you're deploying in docker containers - you can link to the host filesystem
 
-### define the module in your project's app module
+### Define the module in your project's app module
 
 ```ts
 @Global()
@@ -46,8 +48,10 @@ exports.default = () => ({
 })
 export class AppModule {}
 ```
+There's plenty more options that can be passed next to the `configFile`, most of the options work the same like in the original [@nestjs/config](https://docs.nestjs.com/techniques/configuration) module to provide drop-in compatibility.
 
-Use the configuration module in your code
+### Use the configuration module in your code
+Change the `app.controller.ts` code to this
 
 ```ts
 @Controller()
@@ -67,11 +71,42 @@ export class AppController {
   getDb() {
     return this.config.get("database");
   }
+
+  @Get("all")
+  getAll() {
+    return this.config.config;
+  }
 }
 ```
 
 Run your app and call the API endpoints using your favorite browser.
 
-Change the configuration file and refresh the browser,
+- <http://localhost:3000/name>
+- <http://localhost:3000/db>
+- <http://localhost:3000/all>
 
-the information is immediately refreshed from the updated file wihout restarting the nest app !
+This code demonstrates
+
+- dynamic configuration updating
+- different ways to consume the configuration
+- environment variable substitution:
+
+#### Proxies
+
+The `this.nameProxy` is a proxy to the "name" *configuration element* created in the constructor.  When you change the name attribute in the config file and refresh your browser, you'll notice that the change is immediately reflected whithout restarting the nest app.  Because the `this.nameProxy` method is a function, it will always have the latest value from the configuration file when called as `this.nameProxy()`.
+A proxy is create with `config.createProxy(configElementName)`
+
+#### .get&lt;T&gt;() function
+
+The `configService.get(configElementName)` can also be used to extract configuration elements.  Beware that the information will not be automatically refreshed in this case.  Next to the feature of [the original](https://docs.nestjs.com/techniques/configuration#using-the-configservice), the `.get()` can also be called with an array of strings that make a path into the object.  These statements are equivalent
+```ts
+  config.get<object>('database')['host'];
+  config.get<{ host: string }>('database').host;
+  config.get<string>('database.host');
+  config.get<string>(['database', 'host']);
+```
+
+#### Variable substitution
+
+Configuration elements defined as `{{ENV_xxx}}` or `{{pkg.xxx}}` will be substituted either from environment variables or content from the `package.json` file.
+For instance, `{{ENV_NODE_ENV}}` will be substituted with the content of `process.env.NODE_ENV`, `{{pkg.version}}` will be substituted with the package version.
